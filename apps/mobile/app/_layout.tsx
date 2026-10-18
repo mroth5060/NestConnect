@@ -11,7 +11,7 @@ import { configureMobileClient, setSignOutHandler } from "../src/api-config";
 import { ErrorBoundary } from "../src/components/ErrorBoundary";
 import { ToastProvider } from "../src/components/Toast";
 import { loadSession } from "../src/session";
-import { clearBadge } from "../src/push";
+import { forgetWorkspaceNotifications } from "../src/push";
 import { loadSoundPreference } from "../src/sound";
 import { initTelemetry } from "../src/telemetry";
 import { paletteVars } from "../src/theme";
@@ -46,7 +46,7 @@ export default function RootLayout() {
   useEffect(() => {
     setSignOutHandler(() => {
       queryClient.clear();
-      void clearBadge();
+      void forgetWorkspaceNotifications();
       router.replace("/sign-in");
     });
     void loadSession().finally(() => setReady(true));

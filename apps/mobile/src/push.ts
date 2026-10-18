@@ -5,7 +5,7 @@ import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery } from "@tanstack/react-query";
-import { api, useChatStatus } from "@ding/client";
+import { api, useChatStatus, useSession } from "@ding/client";
 
 /** Set once, before anything can arrive. Foreground behaviour is decided here
  *  rather than per-notification so there's one answer, not several.
@@ -240,6 +240,18 @@ export async function clearBadge(): Promise<void> {
 }
 
 /**
+ * Leaving a workspace: its number comes off the icon and its notifications
+ * come out of the tray, straight away rather than whenever the next workspace's
+ * count arrives. Those notifications open conversations this session can't
+ * see, and an Android launcher's badge counts them, so left in place they kept
+ * the old workspace's number on the icon.
+ */
+export async function forgetWorkspaceNotifications(): Promise<void> {
+  await Notifications.dismissAllNotificationsAsync().catch(() => {});
+  await clearBadge();
+}
+
+/**
  * Keep the app-icon number equal to what's actually unread: conversations in
  * My Inbound plus team chats, as the server counts them.
  *
@@ -253,8 +265,11 @@ export async function clearBadge(): Promise<void> {
  * refresh this with them.
  */
 export function useAppBadge(enabled: boolean) {
-  const on = enabled && Platform.OS !== "web";
-  const badge = useQuery({ queryKey: ["views", "badge"], queryFn: () => api.appBadge(), enabled: on, staleTime: 0 });
+  // Keyed by who's signed in: a switch of workspace is a different person
+  // there, and their number must never be read out of the last one's cache.
+  const account = useSession().data?.user?.id;
+  const on = enabled && Platform.OS !== "web" && !!account;
+  const badge = useQuery({ queryKey: ["views", "badge", account], queryFn: () => api.appBadge(), enabled: on, staleTime: 0 });
   const chatUnread = useChatStatus(on).data?.unread;
   const { refetch } = badge;
 

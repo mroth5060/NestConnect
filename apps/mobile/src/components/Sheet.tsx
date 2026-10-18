@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Keyboard, Modal, Platform, Pressable, View, useWindowDimensions } from "react-native";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
@@ -6,6 +6,7 @@ import { fadeTo, spring, springTo, timing } from "../motion";
 import { useTheme, useThemeVars } from "../theme";
 import { useInsets } from "../insets";
 import { useModalSlot } from "../modal-slot";
+import { useStableCallback } from "../stable-callback";
 
 /** How far down you have to drag before letting go dismisses rather than snaps
  *  back, and the flick speed that dismisses regardless of distance. A flick
@@ -126,7 +127,11 @@ export function Sheet({
     open.value = fadeTo(0, timing.base);
   }, [presenting, open, drag]);
 
-  const pan = Gesture.Pan()
+  // Built once: a gesture rebuilt on a re-render is reconfigured natively,
+  // even mid-drag, and the parent re-rendering under a held finger (the inbox's
+  // 30-second clock) crashed the app. See `useStableCallback`.
+  const close = useStableCallback(onClose);
+  const pan = useMemo(() => Gesture.Pan()
     // Let a list inside the sheet win. Requiring 12pt downward before this
     // activates, and failing outright on upward movement, means a sheet with a
     // scrollable body still scrolls: the native scroll gesture claims the touch
@@ -140,11 +145,11 @@ export function Sheet({
     })
     .onEnd((e) => {
       if (e.translationY > DISMISS_DISTANCE || e.velocityY > DISMISS_VELOCITY) {
-        runOnJS(onClose)();
+        runOnJS(close)();
         return;
       }
       drag.value = springTo(0, spring.settle);
-    });
+    }), [drag, close]);
 
   // The scrim thins as the sheet is pulled down, so the background comes back
   // as you go and the drag reads as reversing the entrance rather than sliding

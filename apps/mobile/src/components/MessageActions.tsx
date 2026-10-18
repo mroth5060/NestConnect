@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, Text, View } from "react-native";
 import Animated, {
   runOnJS,
@@ -17,6 +17,7 @@ import { elevation, useTheme, useThemeVars } from "../theme";
 import { readSummary } from "./ReadLog";
 import { useInsets } from "../insets";
 import { useModalSlot } from "../modal-slot";
+import { useStableCallback } from "../stable-callback";
 import { Touchable } from "./Touchable";
 
 /**
@@ -174,17 +175,19 @@ export function MessageActions({
   // one — so it needs its own copy of the gesture and, critically, its own
   // gesture root: handlers get no touches inside a Modal without one.
   const drag = useSharedValue(0);
-  const pan = Gesture.Pan()
+  // Built once, like the Sheet's: see `useStableCallback`.
+  const close = useStableCallback(onClose);
+  const pan = useMemo(() => Gesture.Pan()
     .onUpdate((e) => {
       drag.value = Math.max(0, e.translationY);
     })
     .onEnd((e) => {
       if (e.translationY > 90 || e.velocityY > 700) {
-        runOnJS(onClose)();
+        runOnJS(close)();
         return;
       }
       drag.value = springTo(0, spring.settle);
-    });
+    }), [drag, close]);
 
   const bottom = useAnimatedStyle(() => ({
     transform: [{ translateY: `${(1 - open.value) * 100}%` }, { translateY: drag.value }],
