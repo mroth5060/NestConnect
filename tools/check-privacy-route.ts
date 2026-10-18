@@ -17,7 +17,7 @@
  */
 import express from "express";
 import type { AddressInfo } from "node:net";
-import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync, copyFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { ExpressLoader } from "@nestjs/serve-static/dist/loaders/express.loader";
@@ -38,6 +38,10 @@ async function main(): Promise<void> {
   writeFileSync(join(dist, "widget.html"), "<!doctype html><title>chat</title>WIDGET-DOCUMENT");
   writeFileSync(join(dist, "terms.html"), "<!doctype html><title>terms</title>TERMS-DOCUMENT");
   writeFileSync(join(dist, "data-deletion.html"), "<!doctype html><title>data deletion</title>DATA-DELETION-DOCUMENT");
+  // The site icons phones and browsers ask for by these names, whatever the
+  // page links: the real files, which Vite copies to the build's root.
+  const ROOT_ICONS = ["favicon.ico", "apple-touch-icon.png", "apple-touch-icon-precomposed.png"];
+  for (const f of ROOT_ICONS) copyFileSync(resolve(__dirname, "../apps/web/public", f), join(dist, f));
 
   const app = express();
   new ExpressLoader().register({ getInstance: () => app } as never, [webStaticOptions(dist)]);
@@ -81,6 +85,11 @@ async function main(): Promise<void> {
 
     const deep = await get("/inbox/some/conversation");
     ok("an unknown SPA path still falls back to the inbox", deep.body.includes("INBOX-DOCUMENT"));
+
+    for (const f of ROOT_ICONS) {
+      const icon = await get(`/${f}`);
+      ok(`GET /${f} is the icon, not the inbox`, icon.status === 200 && icon.type.startsWith("image/") && !icon.body.includes("INBOX-DOCUMENT"), `${icon.status} ${icon.type}`);
+    }
 
     const root = await get("/");
     ok("GET / is still the inbox", root.body.includes("INBOX-DOCUMENT"));
