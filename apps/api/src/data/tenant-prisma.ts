@@ -1,5 +1,6 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { currentOrgId } from "../tenancy/tenant-scope";
+import { assertWorkspaceOpen } from "../tenancy/workspace-status";
 
 /**
  * The Prisma client every workspace read and write goes through.
@@ -309,6 +310,8 @@ export function tenantScoped<C extends PrismaClient>(root: C) {
         $allModels: {
           async $allOperations({ model, operation, args, query }) {
             const orgId = currentOrgId();
+            // A suspended, archived or deleting workspace: nothing happens in it.
+            assertWorkspaceOpen(orgId);
             const a = { ...((args ?? {}) as Filter) };
 
             if (model === "Organization" && (operation === "create" || operation === "createMany" || operation === "upsert")) {

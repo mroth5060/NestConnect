@@ -26,6 +26,8 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 interface TenantHolder {
   orgId?: string;
+  /** A platform owner managing this workspace, which may be frozen. */
+  manage?: boolean;
 }
 
 const storage = new AsyncLocalStorage<TenantHolder>();
@@ -46,8 +48,14 @@ export class TenantConflictError extends Error {
 
 /** Run `fn` with `orgId` bound (or, with no org, a slot a public handler can
  *  bind into later). Everything `fn` awaits sees the same binding. */
-export function runInTenant<T>(orgId: string | undefined, fn: () => T): T {
-  return storage.run({ orgId }, fn);
+export function runInTenant<T>(orgId: string | undefined, fn: () => T, opts?: { manage?: boolean }): T {
+  return storage.run({ orgId, manage: opts?.manage }, fn);
+}
+
+/** Whether this context is a platform owner managing a workspace — the one
+ *  thing that still reaches a frozen workspace (see workspace-status.ts). */
+export function managingFrozen(): boolean {
+  return storage.getStore()?.manage === true;
 }
 
 /** Bind the current context to `orgId`. Idempotent for the same org; throws

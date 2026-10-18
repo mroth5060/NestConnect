@@ -5,7 +5,8 @@ import jwt from "jsonwebtoken";
 import type { User } from "@ding/schemas";
 import { env } from "../config/env";
 import { Store } from "../data/store";
-import { bindTenant } from "../tenancy/tenant-scope";
+import { bindTenant, runInTenant } from "../tenancy/tenant-scope";
+import { isWorkspaceFrozen, WorkspaceFrozenError } from "../tenancy/workspace-status";
 
 /** How long "remember this device" skips the second factor at sign-in. */
 export const TRUSTED_DEVICE_TTL_S = 30 * 24 * 60 * 60;
@@ -56,6 +57,17 @@ export class AuthService {
     if (!user) {
       this.recordFailure(email);
       return null;
+    }
+    // A suspended or closed workspace (and nowhere open to go instead): the
+    // password is still checked first, so a wrong one reads like any other and
+    // only the account's owner learns the workspace is frozen.
+    if (isWorkspaceFrozen(user.orgId)) {
+      const hash = await runInTenant(user.orgId, () => this.store.getPasswordHash(user.id), { manage: true });
+      if (!hash || !(await bcrypt.compare(password, hash))) {
+        this.recordFailure(email);
+        return null;
+      }
+      throw new WorkspaceFrozenError(user.orgId);
     }
     // From here the request acts for the account's workspace — including the
     // password check, which reads through the tenant-scoped client.

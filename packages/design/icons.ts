@@ -316,6 +316,14 @@ export const channelIcons = {
   nestchat: {
     fill: "M6 3.4h12A3.6 3.6 0 0 1 21.6 7v6.6A3.6 3.6 0 0 1 18 17.2h-6.1l-4.2 3.4a.85.85 0 0 1-1.38-.66V17.2H6a3.6 3.6 0 0 1-3.6-3.6V7A3.6 3.6 0 0 1 6 3.4Z",
   },
+  /**
+   * SMS — a phone with a message on its screen. A handset rather than another
+   * bubble: WhatsApp and NestChat are both bubbles already, and at the 8px dot
+   * size a third would be one too many to tell apart.
+   */
+  sms: {
+    fill: "M8 2h8a2.5 2.5 0 0 1 2.5 2.5v15A2.5 2.5 0 0 1 16 22H8a2.5 2.5 0 0 1-2.5-2.5v-15A2.5 2.5 0 0 1 8 2Zm0 3v10.5h8V5H8Zm1.4 1.6h5.2v1.5H9.4V6.6Zm0 2.9h3.6V11H9.4V9.5ZM12 17.2a1.15 1.15 0 1 0 0 2.3 1.15 1.15 0 0 0 0-2.3Z",
+  },
   /** Gmail's envelope, with the tell-tale "M" valley. Coloured Gmail red. */
   gmail: {
     fill: "M4 5h1.4L12 9.9 18.6 5H20a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-2.6v-8.2L12 14 6.6 9.8V19H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z",

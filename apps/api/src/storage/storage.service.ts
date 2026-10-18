@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { createReadStream, existsSync } from "node:fs";
 import type { Readable } from "node:stream";
 import { dirname, join, normalize, sep } from "node:path";
@@ -106,6 +106,16 @@ export class StorageService {
       opts?.expiresSeconds ?? 300,
       opts?.downloadName ? { downloadName: opts.downloadName } : undefined,
     );
+  }
+
+  /** Delete an object. Missing already is fine. */
+  async remove(key: string): Promise<void> {
+    const r2 = await this.r2();
+    if (r2) {
+      await r2.delete(key);
+      return;
+    }
+    await rm(this.resolve(key), { force: true });
   }
 
   /** Size of a locally-stored object (disk driver only), or null if missing. */

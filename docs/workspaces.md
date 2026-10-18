@@ -73,6 +73,48 @@ Only platform owners see Settings › **Workspaces** and Settings ›
   which features are switched on, so AI Polish, transcription and the rest
   still show up in every workspace.
 
+## Managing a workspace, and its life
+
+**Manage** on a workspace, in Settings › Workspaces, works from outside it, so
+the owner doesn't have to open the workspace:
+
+- **Name**: rename it. Its people see the new name in their switcher and
+  sidebar.
+- **People**: add someone (invited, or added if they already sign in), change a
+  role, re-send an invite to someone who hasn't set a password yet, or remove
+  someone. A workspace always keeps at least one admin.
+- **Status**:
+
+| Status | What happens | Back |
+| --- | --- | --- |
+| Suspended | Everyone in it is signed out at once and can't sign in again (they're told it's suspended once their password is right). Its WhatsApp numbers, chat widget and Gmail take nothing in and send nothing out, queued messages included, and its jobs pass it by. Everything is kept. | Reactivate |
+| Archived | The same freeze, put away (hidden from the list unless you show archived ones), and kept for ever. | Unarchive |
+| Being deleted | The same freeze, and wiped for good 30 days later. | Restore, any time before then |
+| Delete now | Wiped at once, after you type its name. Can't be undone. | — |
+
+The platform's own workspace can't be suspended, archived or deleted. Nor can
+the one you're in: switch out of it first.
+
+Every closed state is enforced in one place: the tenant-scoped database client
+refuses any query for a frozen workspace (`tenancy/workspace-status.ts`). That
+covers requests, webhooks and background jobs alike. The only way in is an
+owner managing it from Settings › Workspaces. Inbound channel lookups and the
+job sweeps also skip frozen workspaces, so they stay quiet rather than log
+errors.
+
+**The wipe** (`data/workspace-purge.ts`) reads Postgres's own foreign keys to
+find what belongs to a workspace:
+
+- rows of tables with its `orgId`;
+- rows owned through a key from those (CASCADE, RESTRICT, NO ACTION);
+- never rows that only refer to it (SET NULL).
+
+It deletes children before parents, all in one transaction, so a table added
+later is wiped with the rest. Its people's sign-ins go too, unless they're in
+another workspace. Its files are deleted from storage once its rows are gone.
+Workspaces being deleted are wiped by an hourly sweep once their 30 days are
+up.
+
 ## Email in a client's workspace
 
 Outside the platform's own workspace, email connects through **Gmail** (Connect
@@ -84,5 +126,6 @@ the API refuses it with 400, and the web doesn't offer it.
 | Check | Proves |
 | --- | --- |
 | `pnpm check:workspaces-http` (CI, Postgres) | Owners and managers; making a workspace and inviting its admin; accepting the invite in a browser still signed in elsewhere; joining with an existing password; switching and the old session ending; landing where you last were; opening a workspace you aren't in; a password change reaching every workspace; Gmail-only email |
+| `pnpm check:workspace-lifecycle-http` (CI, Postgres) | The wipe covers every table; managing from outside (rename, people, never the last admin); suspended: signed out, can't sign in, channels take nothing in, nobody switches in; archive, delete and restore; delete now: every table's count back to what it was before the workspace existed |
 | `pnpm check:tenant-isolation` | A Login can't be reached through another workspace's user: password, 2FA, sessions |
 | `pnpm check:tenant-http` | Integrations: other workspaces see what's on, never the details, and can't change them |

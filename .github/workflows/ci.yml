@@ -72,6 +72,7 @@ jobs:
           for i in $(seq 1 60); do curl -sf localhost:3011/health >/dev/null && break; sleep 1; done
           TENANT_HTTP_URL=http://localhost:3011 pnpm check:tenant-http
           TENANT_HTTP_URL=http://localhost:3011 pnpm check:workspaces-http
+          TENANT_HTTP_URL=http://localhost:3011 pnpm check:workspace-lifecycle-http
           # A request that reached the store without its workspace bound fails
           # closed with one of these; any in the log is a path that forgot.
           if grep -E "TenantNotBound|TenantConflict" /tmp/api-tenancy.log; then
@@ -382,6 +383,12 @@ jobs:
       # reactions go out and come back in Gmail's format.
       - name: Reactions
         run: pnpm check:reactions
+
+      # SMS through any provider's REST API, described by config: each preset's
+      # requests, polling and webhooks, replies, receipts, duplicates — with the
+      # provider faked at the network seam.
+      - name: SMS
+        run: pnpm check:sms
 
       # The Accounts team's SOPs, added once to Swiftee's workspace: published
       # for the Accounts team, no passwords in them, never added twice.

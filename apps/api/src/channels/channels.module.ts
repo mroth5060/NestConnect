@@ -36,6 +36,10 @@ import { NestChatService } from "./nestchat/nestchat.service";
 import { VisitorBus } from "./nestchat/visitor-bus";
 import { DiagnosticsController } from "./diagnostics.controller";
 import { IntegrationsController } from "../settings/integrations.controller";
+import { SmsController } from "./sms/sms.controller";
+import { SmsProvider } from "./sms/sms.provider";
+import { SmsService } from "./sms/sms.service";
+import { SmsSuggestService } from "./sms/sms-suggest.service";
 
 @Module({
   imports: [RealtimeModule, StorageModule, PushModule, AiModule, AccountsModule, NotificationsModule],
@@ -50,6 +54,7 @@ import { IntegrationsController } from "../settings/integrations.controller";
     NestChatAdminController,
     DiagnosticsController,
     IntegrationsController,
+    SmsController,
   ],
   providers: [
     VisitorEmailService,
@@ -58,6 +63,9 @@ import { IntegrationsController } from "../settings/integrations.controller";
     EmailProvider,
     GmailProvider,
     NestChatProvider,
+    SmsProvider,
+    SmsService,
+    SmsSuggestService,
     {
       provide: CHANNEL_PROVIDERS,
       useFactory: (
@@ -65,8 +73,9 @@ import { IntegrationsController } from "../settings/integrations.controller";
         email: EmailProvider,
         gmailProvider: GmailProvider,
         nestchat: NestChatProvider,
-      ) => [wa, gmailProvider, email, nestchat],
-      inject: [WhatsAppCloudProvider, EmailProvider, GmailProvider, NestChatProvider],
+        sms: SmsProvider,
+      ) => [wa, gmailProvider, email, nestchat, sms],
+      inject: [WhatsAppCloudProvider, EmailProvider, GmailProvider, NestChatProvider, SmsProvider],
     },
     RoutingService,
     IngestService,

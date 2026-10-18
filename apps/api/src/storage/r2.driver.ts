@@ -104,6 +104,12 @@ export class R2Driver {
     return Buffer.from(await res.arrayBuffer());
   }
 
+  async delete(key: string): Promise<void> {
+    const res = await this.signed("DELETE", key);
+    // 204 when it went, 404 when it was never there: gone either way.
+    if (!res.ok && res.status !== 404) throw new Error(`R2 DELETE ${key} → ${res.status}`);
+  }
+
   /**
    * A short-lived presigned GET URL (SigV4 query auth). The client fetches the
    * object straight from R2 — so bytes never pass through this process, Range
@@ -151,7 +157,7 @@ export class R2Driver {
     return `https://${this.host}${path}?${canonicalQuery}&X-Amz-Signature=${signature}`;
   }
 
-  private signed(method: "GET" | "PUT", key: string, body?: Buffer, contentType?: string) {
+  private signed(method: "GET" | "PUT" | "DELETE", key: string, body?: Buffer, contentType?: string) {
     const amzDate = amzNow();
     const path = `/${this.cfg.bucket}/${encodeKey(key)}`;
     const payloadHash = body ? sha256hex(body) : EMPTY_SHA;

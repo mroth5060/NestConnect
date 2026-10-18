@@ -30,6 +30,7 @@ import { env } from "../config/env";
 import { Store } from "../data/store";
 import { TenantContext } from "../tenancy/tenant-context";
 import { runInTenant } from "../tenancy/tenant-scope";
+import { isWorkspaceFrozen } from "../tenancy/workspace-status";
 import { SandboxPolicy } from "../tenancy/sandbox";
 
 type DingServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -157,7 +158,9 @@ export class RealtimeGateway
     // a revoked device would keep receiving the org's traffic until it reconnects.
     // The user the token names, in whichever workspace they are — then the
     // session check runs inside that workspace, like the HTTP guard's.
-    const principal = userId ? await this.store.getUserForAuth(userId) : undefined;
+    const found = userId ? await this.store.getUserForAuth(userId) : undefined;
+    // Nobody is signed in to a suspended or closed workspace.
+    const principal = found && !isWorkspaceFrozen(found.orgId) ? found : undefined;
     const revoked =
       principal && claims?.jti
         ? await runInTenant(principal.orgId, () => this.store.getSession(claims!.jti!)).then((s) => !s || !!s.revokedAt)

@@ -221,7 +221,7 @@ export class PrismaOpsStore extends OpsStore {
   async reviewsDueAcrossWorkspaces(now: Date): Promise<Array<{ id: string; orgId: string }>> {
     // Unscoped on purpose: one sweep covers every workspace.
     return this.root.opsSop.findMany({
-      where: { status: "published", reviewNotifiedAt: null, reviewDueAt: { lte: now } },
+      where: { status: "published", reviewNotifiedAt: null, reviewDueAt: { lte: now }, org: { status: "active" } },
       select: { id: true, orgId: true },
     });
   }

@@ -11,7 +11,7 @@ import { Store, type AnalyticsConvo, type AnalyticsQuery } from "../data/store";
 
 const DAYS: Record<AnalyticsRange, number> = { "7d": 7, "30d": 30, "90d": 90, "12m": 365 };
 const DAY_MS = 86_400_000;
-const CHANNEL_ORDER: ChannelType[] = ["whatsapp", "whatsapp_group", "email"];
+const CHANNEL_ORDER: ChannelType[] = ["whatsapp", "whatsapp_group", "email", "nestchat", "sms"];
 const STATUS_ORDER: ConversationStatus[] = ["open", "pending", "snoozed", "closed"];
 const PRIORITY_ORDER: Priority[] = ["urgent", "high", "normal", "low"];
 

@@ -8,7 +8,7 @@ import { useScrollLock } from "../lib/useScrollLock";
 import { useHoverGlide } from "../lib/useHoverGlide";
 import { Avatar } from "./Avatar";
 
-type Channel = "whatsapp" | "email";
+type Channel = "whatsapp" | "email" | "sms";
 
 /** A channel's glyph in its brand colour — the per-customer "reachable on" cue. */
 function ChanIcon({ channel }: { channel: Channel }) {
@@ -139,7 +139,7 @@ export function Compose({
   const renderChannels = (canWa: boolean, canEmail: boolean, onStart: (ch: Channel, inboxId?: string) => void) => {
     if (pickInboxFor) {
       const list = inboxesFor(pickInboxFor);
-      const label = pickInboxFor === "whatsapp" ? "WhatsApp number" : "email inbox";
+      const label = pickInboxFor === "whatsapp" ? "WhatsApp number" : pickInboxFor === "sms" ? "SMS number" : "email inbox";
       return (
         <div className="compose__inboxes">
           <button type="button" className="compose__back" onClick={() => setPickInboxFor(null)}>
@@ -167,6 +167,10 @@ export function Compose({
     return (
       <div className="compose__chans">
         <ChannelPick channel="whatsapp" disabled={!canWa} busy={busy === "whatsapp"} hint={waHint} onPick={() => chooseChannel("whatsapp", onStart)} />
+        {/* SMS goes to the same number as WhatsApp — where there's an SMS channel to send it from. */}
+        {inboxesFor("sms").length > 0 && (
+          <ChannelPick channel="sms" disabled={!canWa} busy={busy === "sms"} hint="Send a text message" onPick={() => chooseChannel("sms", onStart)} />
+        )}
         <ChannelPick channel="email" disabled={!canEmail} busy={busy === "email"} hint={emailHint} onPick={() => chooseChannel("email", onStart)} />
       </div>
     );

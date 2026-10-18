@@ -16,7 +16,7 @@ import { useInsets } from "../../src/insets";
 import { Touchable } from "../../src/components/Touchable";
 import { useToast } from "../../src/components/Toast";
 
-type Channel = "whatsapp" | "email";
+type Channel = "whatsapp" | "email" | "sms";
 
 /**
  * Start a conversation with someone who hasn't written in.
@@ -202,7 +202,7 @@ export default function Compose() {
       return (
         <View className="gap-2">
           <Text className="pb-1 text-sm text-muted">
-            Send from which {pickInboxFor === "whatsapp" ? "WhatsApp number" : "email inbox"}?
+            Send from which {pickInboxFor === "whatsapp" ? "WhatsApp number" : pickInboxFor === "sms" ? "SMS number" : "email inbox"}?
           </Text>
           {list.map((i) => (
             <Touchable feel="slab"
@@ -229,7 +229,8 @@ export default function Compose() {
     }
     return (
       <View className="gap-2">
-        {(["whatsapp", "email"] as const).map((ch) => {
+        {/* SMS only where the workspace has an SMS channel — most have none. */}
+        {(inboxesFor("sms").length ? (["whatsapp", "sms", "email"] as const) : (["whatsapp", "email"] as const)).map((ch) => {
           const meta = channelMeta(ch);
           const Glyph = meta.Glyph;
           const address = ch === "email" ? email : phone;

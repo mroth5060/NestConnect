@@ -1,3 +1,4 @@
+import type { WorkspaceStatus } from "../tenancy/workspace-status";
 import type {
   ConversationFilterCounts,
   CreateCustomFieldInput,
@@ -114,6 +115,8 @@ export interface WorkspaceMembership {
   user: User;
   orgName: string;
   sandbox: boolean;
+  /** Anything but "active" is frozen: no signing in there. */
+  status: WorkspaceStatus;
 }
 
 /** A workspace, as the platform's owners see it in their list. */
@@ -125,6 +128,17 @@ export interface WorkspaceSummary {
   people: number;
   channels: number;
   conversations: number;
+  status: WorkspaceStatus;
+  statusAt: string | null;
+  /** When a workspace being deleted is wiped for good. */
+  purgeAt: string | null;
+}
+
+/** Someone in a workspace, as the platform's owners manage them from outside. */
+export interface WorkspacePerson {
+  user: User;
+  /** Invited, and hasn't set a password yet. */
+  pending: boolean;
 }
 
 /** A user's two-factor state (the TOTP secret is encrypted at rest). */
@@ -389,6 +403,24 @@ export abstract class Store {
   abstract listWorkspaces(): Promise<WorkspaceSummary[]>;
   /** A new, empty workspace. */
   abstract createWorkspace(name: string): Promise<{ id: string; name: string }>;
+  abstract renameWorkspace(orgId: string, name: string): Promise<void>;
+  /** Suspend, archive, schedule for deletion (with when), or make active again.
+   *  Also updates which workspaces are frozen, on this node. */
+  abstract setWorkspaceStatus(orgId: string, status: WorkspaceStatus, purgeAt: Date | null): Promise<void>;
+  /** Load which workspaces are frozen (workspace-status.ts). */
+  abstract refreshWorkspaceStatuses(): Promise<void>;
+  /** Everyone in a workspace, for its management from outside. Cross-tenant. */
+  abstract listWorkspacePeople(orgId: string): Promise<WorkspacePerson[]>;
+  /** End every session in a workspace (and its phones' push). Cross-tenant. */
+  abstract revokeWorkspaceSessions(orgId: string): Promise<number>;
+  /** A fresh invite for someone who hasn't set a password yet; undefined if
+   *  they have one. In the bound workspace. */
+  abstract reissueInvite(userId: string): Promise<string | undefined>;
+  /** Workspaces being deleted whose time has come. */
+  abstract listWorkspacesDueForPurge(now: Date): Promise<string[]>;
+  /** Wipe a workspace and everything in it, for good. Returns the storage keys
+   *  of its files, for the caller to delete. */
+  abstract purgeWorkspace(orgId: string): Promise<{ files: string[] }>;
   abstract getPasswordHash(userId: string): Promise<string | undefined>;
   abstract teamsForUser(userId: string): Promise<string[]>;
   abstract me(userId: string): Promise<{ user?: User; teams: Team[] }>;
@@ -1298,6 +1330,9 @@ export abstract class Store {
    * leaving the thread to say "Not delivered" about something an admin could
    * have fixed in a minute.
    */
+  /** Texts sent from this channel since `since` that still wait for a delivery
+   *  receipt — what an SMS channel without receipt webhooks asks after. */
+  abstract listAwaitingReceipt(inboxId: string, since: Date, limit?: number): Promise<{ id: string; channelMsgId: string }[]>;
   abstract updateMessageStatusByChannelId(
     channelMsgId: string,
     status: MessageStatus,

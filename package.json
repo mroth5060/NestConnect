@@ -60,6 +60,8 @@
     "check:tenant-isolation": "tsx --tsconfig apps/api/tsconfig.json tools/check-release-tenant.ts && tsx --tsconfig apps/api/tsconfig.json tools/check-tenant-isolation.ts",
     "check:tenant-http": "tsx --tsconfig apps/api/tsconfig.json tools/check-tenant-http.ts",
     "check:workspaces-http": "tsx --tsconfig apps/api/tsconfig.json tools/check-workspaces-http.ts",
+    "check:workspace-lifecycle-http": "tsx --tsconfig apps/api/tsconfig.json tools/check-workspace-lifecycle-http.ts",
+    "check:sms": "tsx --tsconfig apps/api/tsconfig.json tools/check-sms.ts",
     "check:reviewer-workspace": "tsx --tsconfig apps/api/tsconfig.json tools/check-release-sandbox.ts && tsx --tsconfig apps/api/tsconfig.json tools/check-sandbox-storage.ts && tsx --tsconfig apps/api/tsconfig.json tools/check-reviewer-workspace.ts",
     "check:visitor-uploads": "tsx --tsconfig apps/api/tsconfig.json tools/check-visitor-uploads.ts",
     "check:customer-push": "tsx --tsconfig apps/api/tsconfig.json tools/check-customer-push.ts",

@@ -321,6 +321,9 @@ export class AiService {
     if (opts.channel === "email") {
       return "This draft is an email. Full sentences and paragraphs are appropriate; keep any greeting and sign-off the agent wrote.";
     }
+    if (opts.channel === "sms") {
+      return "This draft is an SMS text message: plain text only, short and clear — every character counts. No email formatting, emoji-free unless the agent used them, and no greeting or sign-off the agent didn't write.";
+    }
     if (opts.channel === "whatsapp_group") {
       return "This draft is a WhatsApp group message: direct and conversational, and short enough for a busy group chat.";
     }

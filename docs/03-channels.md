@@ -324,6 +324,16 @@ Postmark (its `ReplyTo` field, or the raw header), Gmail sync and the Gmail
 import all read it (`apps/api/src/channels/email/reply-to.ts`; check:
 `pnpm check:reply-to`).
 
+## SMS — any provider, by configuration
+
+SMS is a channel type like the others. It sits on the same conversations,
+contacts, routing and composer. The provider isn't coded in: one engine
+drives any SMS REST API from a declarative config. That config covers
+endpoints, auth, body template, response mapping, webhooks or polling for
+replies, and receipt status words. DialMyCalls (polling; it has no webhooks)
+and Twilio (webhooks) ship as presets. Any other provider is filled in by
+hand, or from its pasted API docs with AI. See [sms.md](sms.md).
+
 ## The channel abstraction (why the core stays clean)
 
 Every channel implements the same two interfaces, so the domain core never special-cases a provider:

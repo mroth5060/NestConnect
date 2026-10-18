@@ -401,9 +401,12 @@ export class ChannelDispatcher {
 }
 
 /** A short, user-facing failure reason derived from a provider send result. */
-function shortReason(channel: string, result: { httpStatus?: number; errorCode?: string }): string {
-  const label = channel === "email" ? "Email" : channel === "nestchat" ? "NestChat" : "WhatsApp";
+function shortReason(channel: string, result: { httpStatus?: number; errorCode?: string; error?: string }): string {
+  const label = channel === "email" ? "Email" : channel === "nestchat" ? "NestChat" : channel === "sms" ? "SMS" : "WhatsApp";
   if (result.errorCode === "not_connected") return `${label} isn’t connected`;
+  // SMS providers are configured, not known: their own words ("Number barred",
+  // "Insufficient credit") say more than a status code would.
+  if (channel === "sms" && result.error) return `SMS: ${(redactSecrets(result.error) ?? "").slice(0, 160)}`;
   if (result.errorCode === "reauth_required") return `${label}: the channel needs reconnecting — Google signed it out`;
   // Graph error 100 on a send means the phone-number-id and access token don't
   // match (wrong/expired token, or a token for a different number).

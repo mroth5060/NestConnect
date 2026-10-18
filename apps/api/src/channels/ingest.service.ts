@@ -623,6 +623,74 @@ export class IngestService {
     return { conversationId, created: res.created, message };
   }
 
+  /**
+   * A text message, from any SMS provider — already read out of its webhook or
+   * poll by the SMS engine (channels/sms). The sender is a phone number, so the
+   * customer is the same contact as on WhatsApp; the rest is the shared
+   * pipeline, the same as every other channel.
+   *
+   * `channelMsgId` is the provider's id, made unique to the channel by the
+   * caller (`smsMessageKey`): a provider may number its texts 1, 2, 3, and a
+   * retried webhook or an overlapping poll must not store one twice.
+   */
+  async ingestSms(input: {
+    inbox: Inbox;
+    from: string;
+    text: string;
+    channelMsgId: string;
+  }): Promise<{ conversationId: string; created: boolean; duplicate?: boolean } | undefined> {
+    const { inbox } = input;
+    const seen = await this.store.getMessageRefByChannelId(input.channelMsgId);
+    if (seen) return { conversationId: seen.conversationId, created: false, duplicate: true };
+
+    const contact = await this.store.upsertContactByIdentity({
+      orgId: inbox.orgId,
+      kind: "phone",
+      value: input.from,
+      displayName: input.from,
+    });
+    if (contact.blocked) {
+      this.logger.log(`Dropped inbound SMS from blocked contact ${input.from}`);
+      return undefined;
+    }
+
+    const { conversation, created } = await this.store.findOrCreateOpenConversation({
+      orgId: inbox.orgId,
+      inboxId: inbox.id,
+      contact,
+      channel: "sms",
+      // A text has no subject of its own; Nest writes one (fields + topic).
+      autoSubject: true,
+    });
+    let conv = conversation;
+    if (created) {
+      const decision = await this.routing.route(inbox, contact);
+      const assigned = await this.store.assign(conv.id, decision);
+      if (assigned) conv = assigned;
+      await this.applyTeamSla(conv);
+      this.realtime.emitConversationAssigned(conv, "auto-routing");
+      await this.logArrival(conv.id, contact.displayName, "sms", decision);
+      await fileArrival(this.store, inbox, contact.id, conv.id);
+      this.logger.log(
+        `New SMS conversation ${conv.id} from ${input.from} → ` +
+          `${decision.assigneeUserId ? `agent ${decision.assigneeUserId}` : `team ${decision.assignedTeamId} (queue)`}`,
+      );
+    }
+
+    const message = await this.appendInbound(conv.id, {
+      authorName: contact.displayName,
+      body: input.text,
+      channelMsgId: input.channelMsgId,
+      channel: "sms",
+    });
+    if (message) {
+      this.realtime.emitMessageCreated(conv.id, message, inbox.orgId);
+      void this.pushInbound(conv.id, contact.displayName, input.text, created);
+      this.subjects.customerWrote(conv.id, inbox.orgId);
+    }
+    return { conversationId: conv.id, created };
+  }
+
   /** The quoted id if it names a message in this thread the visitor may quote,
    *  and nothing otherwise. */
   private async resolveNestChatQuote(

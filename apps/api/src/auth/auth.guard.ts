@@ -1,4 +1,5 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
+import { isWorkspaceFrozen } from "../tenancy/workspace-status";
 import { Reflector } from "@nestjs/core";
 import type { Request } from "express";
 import { env } from "../config/env";
@@ -54,7 +55,9 @@ export class AuthGuard implements CanActivate {
     // everything else, the session check included, runs inside theirs. The
     // TenantInterceptor binds the handler to the same org via `req.orgId`.
     const principal = claims ? await this.store.getUserForAuth(claims.userId) : undefined;
-    if (claims && principal) {
+    // A session in a suspended or closed workspace is no session: signed out,
+    // so the apps go back to signing in rather than showing a screen of errors.
+    if (claims && principal && !isWorkspaceFrozen(principal.orgId)) {
       await runInTenant(principal.orgId, async () => {
         if (claims.sessionId) {
           // Session-bound cookie: honour revocation (remote sign-out). If revoked,

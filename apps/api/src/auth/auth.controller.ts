@@ -36,6 +36,7 @@ import { env } from "../config/env";
 import { bindTenant, runInTenant } from "../tenancy/tenant-scope";
 import { isPlatformOwner } from "../tenancy/platform-owner";
 import { isPlatformOrg } from "../tenancy/platform";
+import { isWorkspaceFrozen, WorkspaceFrozenError } from "../tenancy/workspace-status";
 import { SandboxPolicy } from "../tenancy/sandbox";
 import { AuthService, TRUSTED_DEVICE_TTL_S } from "./auth.service";
 import { SessionService } from "./session.service";
@@ -347,7 +348,8 @@ export class AuthController {
   /** The workspaces I'm in, and whether I own the platform. */
   @Get("workspaces")
   async myWorkspaces(@CurrentUserId() userId: string): Promise<MyWorkspaces> {
-    const places = await this.store.listMemberships(userId);
+    // A suspended or closed workspace isn't somewhere to go.
+    const places = (await this.store.listMemberships(userId)).filter((m) => m.status === "active" || m.user.id === userId);
     return {
       workspaces: places.map((m) => ({
         orgId: m.user.orgId,
@@ -377,6 +379,9 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
     @CurrentSessionId() sessionId?: string,
   ) {
+    // Refused before anything changes — before an owner is added to it, before
+    // this session ends — so a frozen workspace never strands anyone.
+    if (isWorkspaceFrozen(body.orgId)) throw new WorkspaceFrozenError(body.orgId);
     let target = await this.store.membershipIn(userId, body.orgId);
     if (!target && (await isPlatformOwner(this.store, userId))) {
       const exists = (await this.store.listWorkspaces()).some((w) => w.id === body.orgId);

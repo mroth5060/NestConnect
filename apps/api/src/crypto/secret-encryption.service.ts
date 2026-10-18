@@ -30,6 +30,10 @@ const SECRET_CHANNEL_FIELDS = new Set([
   "refreshToken",
   "identitySecret",
   "fcmServiceAccount",
+  // SMS: the provider's API key / token / password, and the token in this
+  // channel's webhook URLs.
+  "smsSecret",
+  "smsWebhookToken",
 ]);
 
 /** AppSetting keys that hold secrets (see google/meta oauth + r2 config). */

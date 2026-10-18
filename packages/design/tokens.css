@@ -24,7 +24,7 @@
   --amber:#E68A00; --amber-tint:#FBEFD9;
   --danger:#E0544D; --danger-tint:#FBE7E5;
   /* channels */
-  --wa:#1FBE5B; --email:#5B8DEF; --group:#A06CF2; --nestchat:#D94590;
+  --wa:#1FBE5B; --email:#5B8DEF; --group:#A06CF2; --nestchat:#D94590; --sms:#0E9AA7;
   /* AI assist (Claude) — its own accent, so it never reads as a brand action. */
   --ai:#C15F3C;
   /* near-invisible, layered depth — "depth, not darkness" */
@@ -42,7 +42,7 @@
     --brand:#3CC27A; --brand-strong:#2BA866; --brand-tint:#0E2418; --brand-ring:rgba(60,194,122,.4);
     --amber:#F2A73C; --amber-tint:#2A2012;
     --danger:#F0716B; --danger-tint:#2B1615;
-    --wa:#33D06B; --email:#78A0F5; --group:#B98BF6; --nestchat:#F077B8;
+    --wa:#33D06B; --email:#78A0F5; --group:#B98BF6; --nestchat:#F077B8; --sms:#3CC4CF;
     --ai:#E08159;
     --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 22px -12px rgba(0,0,0,.55);
     --shadow-lg:0 8px 24px -10px rgba(0,0,0,.5),0 48px 90px -30px rgba(0,0,0,.72);
@@ -55,7 +55,7 @@
   --text:#1A1A18; --text-muted:#6B6B67; --text-faint:#9A9A95;
   --brand:#1DAA61; --brand-strong:#128048; --brand-tint:#E3F6E9; --brand-ring:rgba(29,170,97,.35);
   --amber:#E68A00; --amber-tint:#FBEFD9; --danger:#E0544D; --danger-tint:#FBE7E5;
-  --wa:#1FBE5B; --email:#5B8DEF; --group:#A06CF2; --nestchat:#D94590;
+  --wa:#1FBE5B; --email:#5B8DEF; --group:#A06CF2; --nestchat:#D94590; --sms:#0E9AA7;
   --ai:#C15F3C;
   --shadow:0 1px 2px rgba(13,21,18,.05),0 6px 16px -10px rgba(13,21,18,.12);
   --shadow-lg:0 4px 14px -6px rgba(13,21,18,.10),0 40px 80px -30px rgba(13,21,18,.26);
@@ -67,7 +67,7 @@
   --text:#ECECEA; --text-muted:#9A9A94; --text-faint:#6E6E69;
   --brand:#3CC27A; --brand-strong:#2BA866; --brand-tint:#0E2418; --brand-ring:rgba(60,194,122,.4);
   --amber:#F2A73C; --amber-tint:#2A2012; --danger:#F0716B; --danger-tint:#2B1615;
-  --wa:#33D06B; --email:#78A0F5; --group:#B98BF6; --nestchat:#F077B8;
+  --wa:#33D06B; --email:#78A0F5; --group:#B98BF6; --nestchat:#F077B8; --sms:#3CC4CF;
   --ai:#E08159;
   --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 22px -12px rgba(0,0,0,.55);
   --shadow-lg:0 8px 24px -10px rgba(0,0,0,.5),0 48px 90px -30px rgba(0,0,0,.72);

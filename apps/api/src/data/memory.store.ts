@@ -56,7 +56,7 @@ import { canAdvanceStatus, canonicalLang, computeWaWindow, isWaChannel, messageT
 import { DEMO_USER_ID, ORG_ID, makeSeed, type ConversationRecord } from "./fixtures";
 
 /** The one workspace the in-memory demo holds. */
-const MEMORY_WORKSPACE_NAME = "Swiftee";
+let memoryWorkspaceName = "Swiftee";
 import { PLATFORM_ORG_ID } from "../tenancy/platform";
 import { boundOrgId } from "../tenancy/tenant-scope";
 import {
@@ -68,6 +68,7 @@ import {
   type AnalyticsQuery,
   type AppendInboundInput,
   type AttachmentInput,
+  type WorkspacePerson,
   type ImportEmailThreadInput,
   type MessageStatusChange,
   type OutboundDeliveryMeta,
@@ -260,7 +261,7 @@ export class MemoryStore extends Store {
 
   async listMemberships(userId: string): Promise<WorkspaceMembership[]> {
     const user = this.users.find((u) => u.id === userId);
-    return user ? [{ user, orgName: MEMORY_WORKSPACE_NAME, sandbox: false }] : [];
+    return user ? [{ user, orgName: memoryWorkspaceName, sandbox: false, status: "active" }] : [];
   }
 
   async membershipIn(userId: string, orgId: string): Promise<User | undefined> {
@@ -280,18 +281,57 @@ export class MemoryStore extends Store {
     return [
       {
         id: ORG_ID,
-        name: MEMORY_WORKSPACE_NAME,
+        name: memoryWorkspaceName,
         sandbox: false,
         createdAt: new Date(0).toISOString(),
         people: this.users.length,
         channels: this.inboxes.length,
         conversations: this.conversations.length,
+        status: "active",
+        statusAt: null,
+        purgeAt: null,
       },
     ];
   }
 
   async createWorkspace(): Promise<{ id: string; name: string }> {
     throw new Error("New workspaces need the database");
+  }
+
+  async renameWorkspace(_orgId: string, name: string): Promise<void> {
+    memoryWorkspaceName = name;
+  }
+
+  // The demo's one workspace is the platform's own: never frozen, never wiped.
+  async setWorkspaceStatus(): Promise<void> {
+    throw new Error("Suspending or deleting a workspace needs the database");
+  }
+
+  async refreshWorkspaceStatuses(): Promise<void> {}
+
+  async listWorkspacePeople(): Promise<WorkspacePerson[]> {
+    return this.users.map((user) => ({ user, pending: !this.passwords.has(user.id) }));
+  }
+
+  async revokeWorkspaceSessions(): Promise<number> {
+    const live = this.sessions.filter((s) => !s.revokedAt);
+    for (const s of live) s.revokedAt = new Date().toISOString();
+    return live.length;
+  }
+
+  async reissueInvite(userId: string): Promise<string | undefined> {
+    if (!this.users.some((u) => u.id === userId) || this.passwords.has(userId)) return undefined;
+    const inv = newInviteToken();
+    this.invites.set(userId, { hash: inv.hash, exp: inv.expiresAt.getTime() });
+    return inv.token;
+  }
+
+  async listWorkspacesDueForPurge(): Promise<string[]> {
+    return [];
+  }
+
+  async purgeWorkspace(): Promise<{ files: string[] }> {
+    throw new Error("Deleting a workspace needs the database");
   }
 
   async getPasswordHash(userId: string): Promise<string | undefined> {
@@ -2389,6 +2429,18 @@ export class MemoryStore extends Store {
       changed.push({ conversationId: rec.id, message: m });
     }
     return changed;
+  }
+
+  async listAwaitingReceipt(inboxId: string, since: Date, limit = 50): Promise<{ id: string; channelMsgId: string }[]> {
+    const out: { id: string; channelMsgId: string; at: string }[] = [];
+    for (const rec of this.conversations) {
+      for (const m of rec.messages) {
+        if (m.inboxId === inboxId && m.direction === "out" && !m.internal && m.status === "sent" && m.channelMsgId && m.createdAt >= since.toISOString()) {
+          out.push({ id: m.id, channelMsgId: m.channelMsgId, at: m.createdAt });
+        }
+      }
+    }
+    return out.sort((a, b) => b.at.localeCompare(a.at)).slice(0, limit).map(({ id, channelMsgId }) => ({ id, channelMsgId }));
   }
 
   async updateMessageStatusByChannelId(

@@ -24,6 +24,7 @@ import {
   useSetPriority,
   useTeams,
   useUpdateContact,
+  useInboxes,
   startedAlongside,
 } from "../hooks";
 import { useQueryClient } from "@tanstack/react-query";
@@ -328,11 +329,14 @@ function ChannelsBlock({
 }: {
   contact: Contact;
   activeChannel: ChannelType;
-  onSwitch: (channel: "whatsapp" | "email") => Promise<void>;
+  onSwitch: (channel: "whatsapp" | "email" | "sms") => Promise<void>;
 }) {
   const [pending, setPending] = useState<string | null>(null);
-  const rows: { type: "whatsapp" | "email"; value: string }[] = [];
+  // SMS only where the workspace has an SMS channel to send from.
+  const hasSms = (useInboxes().data ?? []).some((i) => i.type === "sms");
+  const rows: { type: "whatsapp" | "email" | "sms"; value: string }[] = [];
   if (contact.phone) rows.push({ type: "whatsapp", value: contact.phone });
+  if (contact.phone && hasSms) rows.push({ type: "sms", value: contact.phone });
   if (contact.email) rows.push({ type: "email", value: contact.email });
 
   return (
@@ -631,7 +635,7 @@ export function ContextPanel({ conversationId, onToast, onClose, onOpenConversat
 
   // Move this customer to another channel: open their thread there (starting one
   // if needed) and jump to it. Closing the panel reveals the thread on mobile.
-  const switchChannel = async (channel: "whatsapp" | "email") => {
+  const switchChannel = async (channel: "whatsapp" | "email" | "sms") => {
     try {
       const { conversationId, alsoOpenWith } = await api.reachContact(conv.contact.id, channel);
       if (alsoOpenWith) onToast(startedAlongside(conv.contact.displayName, alsoOpenWith));

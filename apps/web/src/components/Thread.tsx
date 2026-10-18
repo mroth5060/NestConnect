@@ -1909,7 +1909,7 @@ export function Thread({ conversationId, showPanel, onTogglePanel, onToast, onBa
   const isGroup = conv.channel === "whatsapp_group";
   // The reply-target channels shown in the composer's mode switcher (before the
   // Note tab) — shared with the phone so the two can't drift apart on it.
-  const replyTargets: ChannelType[] = replyTargetsFor(conv);
+  const replyTargets: ChannelType[] = replyTargetsFor(conv, (inboxes ?? []).map((i) => i.type));
   // Default the composer to the channel the thread most recently used, not the
   // conversation's own channel. Those are the same for most threads and only
   // diverge once someone has actually replied on the other one — which is
@@ -3728,14 +3728,17 @@ export function Thread({ conversationId, showPanel, onTogglePanel, onToast, onBa
                   <SparkleIcon />
                 </button>
               )}
-              <button
-                className="tool"
-                title="Attach"
-                aria-label="Attach files"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <AttachIcon />
-              </button>
+              {/* A text message carries text: SMS has no attachments (a note does). */}
+              {(composeChannel !== "sms" || internal) && (
+                <button
+                  className="tool"
+                  title="Attach"
+                  aria-label="Attach files"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <AttachIcon />
+                </button>
+              )}
               {/* One trailing button, WhatsApp-style: a mic while there's nothing
                   to send (voice-capable WhatsApp threads only), which becomes the
                   send paper-plane the moment there's text or an attachment. */}

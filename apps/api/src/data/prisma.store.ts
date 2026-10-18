@@ -55,6 +55,8 @@ import { DEMO_USER_ID } from "./fixtures";
 import { currentOrgId, runInTenant } from "../tenancy/tenant-scope";
 import { PLATFORM_ORG_ID } from "../tenancy/platform";
 import { tenantScoped, TenantViolationError, type TenantPrisma } from "./tenant-prisma";
+import { purgeWorkspaceData } from "./workspace-purge";
+import { noteWorkspaceStatus, replaceFrozenWorkspaces, type WorkspaceStatus } from "../tenancy/workspace-status";
 
 /** Which normalisation wrote the identity keys currently in the table. A
  *  platform setting: it describes the data in every workspace, not any one
@@ -92,6 +94,7 @@ import { SecretEncryptionService } from "../crypto/secret-encryption.service";
 import {
   Store,
   EMAIL_OPEN_GRACE_MS,
+  type WorkspacePerson,
   type AnalyticsBundle,
   type AnalyticsConvo,
   type AnalyticsMsg,
@@ -237,8 +240,16 @@ export class PrismaStore extends Store {
   async findUserByEmail(email: string): Promise<User | undefined> {
     const login = await this.loginByEmail(email);
     if (!login) return undefined;
-    const rows = await this.root.user.findMany({ where: { loginId: login.id }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
-    const row = rows.find((u) => u.orgId === login.lastOrgId) ?? rows[0];
+    const rows = await this.root.user.findMany({
+      where: { loginId: login.id },
+      include: { org: { select: { status: true } } },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    });
+    // A suspended or closed workspace is passed over for one that's open; with
+    // none open, signing in reaches the frozen one and is refused there.
+    const open = rows.filter((u) => u.org.status === "active");
+    const pool = open.length ? open : rows;
+    const row = pool.find((u) => u.orgId === login.lastOrgId) ?? pool[0];
     return row ? mapUser(row) : undefined;
   }
 
@@ -333,14 +344,14 @@ export class PrismaStore extends Store {
       const me = await this.getUserForAuth(userId);
       if (!me) return [];
       const org = await this.root.organization.findUnique({ where: { id: me.orgId } });
-      return [{ user: me, orgName: org?.name ?? "", sandbox: org?.sandbox ?? false }];
+      return [{ user: me, orgName: org?.name ?? "", sandbox: org?.sandbox ?? false, status: (org?.status ?? "active") as WorkspaceStatus }];
     }
     const rows = await this.root.user.findMany({
       where: { loginId: login.id },
-      include: { org: { select: { name: true, sandbox: true } } },
+      include: { org: { select: { name: true, sandbox: true, status: true } } },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
-    return rows.map((r) => ({ user: mapUser(r), orgName: r.org.name, sandbox: r.org.sandbox }));
+    return rows.map((r) => ({ user: mapUser(r), orgName: r.org.name, sandbox: r.org.sandbox, status: r.org.status as WorkspaceStatus }));
   }
 
   // Cross-tenant by necessity: the same person's place in another workspace.
@@ -398,7 +409,54 @@ export class PrismaStore extends Store {
       people: o._count.users,
       channels: o._count.inboxes,
       conversations: o._count.conversations,
+      status: o.status as WorkspaceStatus,
+      statusAt: o.statusAt?.toISOString() ?? null,
+      purgeAt: o.purgeAt?.toISOString() ?? null,
     }));
+  }
+
+  // Cross-tenant by necessity, as is all of the below: the platform's owners
+  // manage a workspace from outside it.
+  async renameWorkspace(orgId: string, name: string): Promise<void> {
+    await this.root.organization.update({ where: { id: orgId }, data: { name } });
+  }
+
+  async setWorkspaceStatus(orgId: string, status: WorkspaceStatus, purgeAt: Date | null): Promise<void> {
+    await this.root.organization.update({ where: { id: orgId }, data: { status, statusAt: new Date(), purgeAt } });
+    noteWorkspaceStatus(orgId, status);
+  }
+
+  async refreshWorkspaceStatuses(): Promise<void> {
+    replaceFrozenWorkspaces(await this.root.organization.findMany({ where: { status: { not: "active" } }, select: { id: true, status: true } }));
+  }
+
+  async listWorkspacePeople(orgId: string): Promise<WorkspacePerson[]> {
+    const rows = await this.root.user.findMany({
+      where: { orgId },
+      include: { login: { select: { passwordHash: true } } },
+      orderBy: { name: "asc" },
+    });
+    return rows.map((u) => ({ user: mapUser(u), pending: !(u.login?.passwordHash ?? u.passwordHash) }));
+  }
+
+  async revokeWorkspaceSessions(orgId: string): Promise<number> {
+    const where = { user: { orgId }, revokedAt: null };
+    const doomed = await this.root.session.findMany({ where, select: { id: true } });
+    if (!doomed.length) return 0;
+    await this.root.session.updateMany({ where: { id: { in: doomed.map((d) => d.id) } }, data: { revokedAt: new Date() } });
+    await this.root.device.deleteMany({ where: { OR: [{ sessionId: { in: doomed.map((d) => d.id) } }, { user: { orgId } }] } });
+    return doomed.length;
+  }
+
+  async listWorkspacesDueForPurge(now: Date): Promise<string[]> {
+    const rows = await this.root.organization.findMany({ where: { status: "deleting", purgeAt: { lte: now } }, select: { id: true } });
+    return rows.map((r) => r.id);
+  }
+
+  async purgeWorkspace(orgId: string): Promise<{ files: string[] }> {
+    const { files } = await purgeWorkspaceData(this.root, orgId);
+    noteWorkspaceStatus(orgId, "active");
+    return { files };
   }
 
   // Cross-tenant by necessity: a new workspace has no tenant to be made in.
@@ -929,6 +987,16 @@ export class PrismaStore extends Store {
     }
   }
 
+  async reissueInvite(userId: string): Promise<string | undefined> {
+    const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!u) return undefined;
+    const login = await this.loginOf(userId);
+    if (login?.passwordHash) return undefined;
+    const invite = newInviteToken();
+    await this.prisma.user.update({ where: { id: userId }, data: { inviteTokenHash: invite.hash, inviteExpiresAt: invite.expiresAt } });
+    return invite.token;
+  }
+
   async setUserPassword(userId: string, password: string): Promise<void> {
     const login = await this.loginOf(userId);
     if (login) await this.root.login.update({ where: { id: login.id }, data: { passwordHash: bcrypt.hashSync(password, 8) } });
@@ -1240,7 +1308,8 @@ export class PrismaStore extends Store {
   // Cross-tenant by necessity: see the Store contract — background jobs only.
   async listInboxesAcrossWorkspaces(type: ChannelType): Promise<Inbox[]> {
     const rows = await this.root.inbox.findMany({
-      where: { type },
+      // A frozen workspace's channels are left alone: no polling, no syncing.
+      where: { type, org: { status: "active" } },
       include: { teams: true },
       orderBy: [{ orgId: "asc" }, { order: "asc" }, { createdAt: "asc" }],
     });
@@ -2074,7 +2143,7 @@ export class PrismaStore extends Store {
   // caller handles each conversation inside its own workspace (conv.orgId).
   async listDueSnoozed(): Promise<Conversation[]> {
     const rows = await this.root.conversation.findMany({
-      where: { status: "snoozed", snoozedUntil: { lte: new Date() } },
+      where: { status: "snoozed", snoozedUntil: { lte: new Date() }, org: { status: "active" } },
       include: convInclude,
       orderBy: { snoozedUntil: "asc" },
     });
@@ -2323,9 +2392,12 @@ export class PrismaStore extends Store {
    * ambiguity should never arise; this is the backstop.
    */
 
+  // Only an active workspace's channels take anything in: to a suspended,
+  // archived or deleting one, an inbound message is for no channel we know.
+
   async getInboxByWhatsAppPhoneId(phoneNumberId: string): Promise<Inbox | undefined> {
     const rows = await this.root.inbox.findMany({
-      where: { type: { in: ["whatsapp", "whatsapp_group"] } },
+      where: { type: { in: ["whatsapp", "whatsapp_group"] }, org: { status: "active" } },
       include: { teams: true },
     });
     // Deterministic: the inbox whose configured number matches this one.
@@ -2360,7 +2432,7 @@ export class PrismaStore extends Store {
   async getInboxesByWabaId(wabaId: string): Promise<Inbox[]> {
     if (!wabaId) return [];
     const rows = await this.root.inbox.findMany({
-      where: { type: { in: ["whatsapp", "whatsapp_group"] } },
+      where: { type: { in: ["whatsapp", "whatsapp_group"] }, org: { status: "active" } },
       include: { teams: true },
     });
     return rows.filter((i) => (i.channelConfig as { wabaId?: string } | null)?.wabaId === wabaId).map(mapInbox);
@@ -2373,7 +2445,7 @@ export class PrismaStore extends Store {
     // channelConfig JSON, and there are a handful of channels in an org — a JSON
     // path index would be machinery for a list that fits on a screen.
     const rows = await this.root.inbox.findMany({
-      where: { type: "nestchat" },
+      where: { type: "nestchat", org: { status: "active" } },
       include: { teams: true },
     });
     return unambiguous(rows.filter((i) => (i.channelConfig as Record<string, string> | null)?.widgetKey === key));
@@ -2386,7 +2458,7 @@ export class PrismaStore extends Store {
     // reason: a handful of channels per org, and the key lives inside the
     // channelConfig JSON.
     const rows = await this.root.inbox.findMany({
-      where: { type: "nestchat" },
+      where: { type: "nestchat", org: { status: "active" } },
       include: { teams: true },
     });
     return unambiguous(rows.filter((i) => (i.channelConfig as Record<string, string> | null)?.appKey === key));
@@ -2394,7 +2466,7 @@ export class PrismaStore extends Store {
 
   async getInboxByEmailAddress(address: string): Promise<Inbox | undefined> {
     const rows = await this.root.inbox.findMany({
-      where: { type: "email" },
+      where: { type: "email", org: { status: "active" } },
       include: { teams: true },
     });
     const a = address.trim().toLowerCase();
@@ -3066,6 +3138,16 @@ export class PrismaStore extends Store {
       changed.push({ conversationId, message: mapMessage(updated) });
     }
     return changed;
+  }
+
+  async listAwaitingReceipt(inboxId: string, since: Date, limit = 50): Promise<{ id: string; channelMsgId: string }[]> {
+    const rows = await this.prisma.message.findMany({
+      where: { inboxId, direction: "out", internal: false, status: "sent", channelMsgId: { not: null }, createdAt: { gte: since } },
+      select: { id: true, channelMsgId: true },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    });
+    return rows.map((r) => ({ id: r.id, channelMsgId: r.channelMsgId! }));
   }
 
   async updateMessageStatusByChannelId(

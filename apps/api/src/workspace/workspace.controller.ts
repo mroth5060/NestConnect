@@ -14,6 +14,7 @@ import {
 } from "@nestjs/common";
 import {
   createInboxInputSchema,
+  smsProviderConfigSchema,
   createLabelInputSchema,
   createTeamInputSchema,
   createUserInputSchema,
@@ -45,6 +46,7 @@ import {
   type UpdateUserInput,
   type User,
 } from "@ding/schemas";
+import { newWebhookToken } from "../channels/sms/sms.service";
 import { Store } from "../data/store";
 import { SandboxPolicy } from "../tenancy/sandbox";
 import { isPlatformOrg } from "../tenancy/platform";
@@ -204,6 +206,19 @@ export class WorkspaceController {
       throw new BadRequestException("Email for this workspace connects through Gmail — use “Connect Gmail” instead.");
     }
     await this.assertChannelKeyFree(body.type, body.handle, body.channelConfig);
+    // SMS: the provider config must be one the engine can read, and the channel
+    // gets the token that lets its provider's webhooks in.
+    if (body.type === "sms") {
+      const raw = body.channelConfig?.smsConfig;
+      let ok = false;
+      try {
+        ok = !!raw && smsProviderConfigSchema.safeParse(JSON.parse(raw)).success;
+      } catch {
+        ok = false;
+      }
+      if (!ok) throw new BadRequestException("The SMS provider settings aren't complete — check them and try again.");
+      body = { ...body, channelConfig: { ...body.channelConfig, smsWebhookToken: newWebhookToken() } };
+    }
     const inbox = await this.store.createInbox({ orgId: me.orgId, ...body });
     await this.subscribeWhatsAppWebhook(inbox.id, inbox.type);
     return inbox;

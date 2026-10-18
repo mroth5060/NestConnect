@@ -93,6 +93,7 @@ const CHANNEL: Record<string, string> = {
   whatsapp_group: "a WhatsApp group",
   email: "email",
   nestchat: "live chat",
+  sms: "SMS",
 };
 const PRIORITY: Record<string, string> = { low: "Low", normal: "Normal", high: "High", urgent: "Urgent" };
 const STATUS: Record<string, string> = { open: "Open", pending: "Pending", snoozed: "Snoozed", closed: "Closed" };

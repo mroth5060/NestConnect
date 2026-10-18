@@ -3,6 +3,7 @@ import type { MessageStatus } from "@ding/schemas";
 import { ConversationLog, SYSTEM } from "../conversations/conversation-log";
 import { Store } from "../data/store";
 import { boundOrgId, runInTenant } from "../tenancy/tenant-scope";
+import { isWorkspaceFrozen } from "../tenancy/workspace-status";
 import { RealtimeGateway } from "../realtime/realtime.gateway";
 import { redactSecrets } from "../crypto/redact";
 import { ChannelDispatcher } from "./channel-dispatcher";
@@ -52,6 +53,8 @@ export class OutboundDeliveryService {
     // A queue worker belongs to no request, so the attempt states its workspace.
     const orgId = job.orgId ?? (await this.store.conversationOrg(job.conversationId));
     if (!orgId) return { state: "skipped", reason: "conversation not found" };
+    // A suspended or closed workspace sends nothing, queued or not.
+    if (isWorkspaceFrozen(orgId)) return { state: "skipped", reason: "workspace is frozen" };
     return runInTenant(orgId, () => this.deliverInWorkspace(job));
   }
 
@@ -152,7 +155,7 @@ export class OutboundDeliveryService {
   /** Give up on a message after the queue has exhausted its retries. */
   async markExhausted(job: DeliveryJob, reason: string): Promise<void> {
     const orgId = job.orgId ?? (await this.store.conversationOrg(job.conversationId));
-    if (!orgId) return;
+    if (!orgId || isWorkspaceFrozen(orgId)) return;
     await runInTenant(orgId, async () => {
       const change = await this.store.recordSendFailure(job.messageId, { permanent: true, reason });
       if (change) {

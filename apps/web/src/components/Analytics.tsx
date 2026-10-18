@@ -38,6 +38,7 @@ const CHANNEL_LABEL: Record<ChannelType, string> = {
   whatsapp_group: "Groups",
   email: "Email",
   nestchat: "NestChat",
+  sms: "SMS",
 };
 const channelColor = (c: ChannelType) => channelMeta(c).color;
 

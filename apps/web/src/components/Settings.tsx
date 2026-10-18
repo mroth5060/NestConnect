@@ -11,12 +11,16 @@ import { appSetupGuide, type AppSetupStep } from "../lib/nestchat-app-setup";
 import { WhatsAppPinField, WhatsAppRegistration } from "./WhatsAppRegistration";
 import { PullMissedEmail, ReconnectEmailDialog, signedOutSince, useReconnectEmail } from "./ReconnectEmail";
 import { MacrosPane } from "./MacrosPane";
+import { SmsConfigEditor, SmsProviderPanel, smsDefaults } from "./SmsChannel";
 import { OpsModulesPane } from "./ops/OpsModulesPane";
 import { ChannelSignature, signatureDraftFor, signatureInput, type SignatureDraft } from "./ChannelSignature";
 import type {
   ChannelType,
   Inbox,
   Label,
+  PlatformPersonInvite,
+  PlatformWorkspace,
+  WorkspaceStatus,
   Role,
   CustomField,
   CustomFieldEntity,
@@ -83,6 +87,8 @@ import {
   useMyWorkspaces,
   usePlatformWorkspaces,
   useCreateWorkspace,
+  useManageWorkspace,
+  useWorkspacePeople,
   api as platformApi,
   useMe,
   usePeople,
@@ -115,7 +121,7 @@ import {
 import { initials, avatarBg } from "../lib/format";
 import { api } from "../lib/api";
 import { loadedSdk, prepareCoexistenceSignup, runCoexistenceSignup } from "../lib/meta-signup";
-import { BUSINESS_APP_FINISH_EVENT, type CoexistenceSetup } from "@ding/schemas";
+import { BUSINESS_APP_FINISH_EVENT, WORKSPACE_DELETE_GRACE_DAYS, smsProviderConfigSchema, type CoexistenceSetup } from "@ding/schemas";
 import { TEMPLATE_CATEGORIES, approvalMeta, countVariables } from "./TemplatePicker";
 import {
   BellIcon,
@@ -407,6 +413,15 @@ const CHANNEL_KINDS: ChannelKind[] = [
     handlePlaceholder: "swiftee.co.uk",
     // No credentials: there is no third party to authenticate with. The widget
     // key that identifies this channel is minted for us, not pasted in.
+    fields: [],
+  },
+  {
+    type: "sms",
+    label: "SMS",
+    desc: "Text messages through any SMS provider — DialMyCalls, Twilio, or any other with a REST API.",
+    handleLabel: "Sender number or ID",
+    handlePlaceholder: "+15551234567",
+    // The provider settings have their own editor (SmsChannel.tsx).
     fields: [],
   },
   {
@@ -830,6 +845,7 @@ function ChannelEditor({
           )}
         </div>
       )}
+      {inbox.type === "sms" && <SmsProviderPanel inboxId={inbox.id} onToast={onToast} />}
       {kind && kind.fields.length > 0 && !isGmail && (
         <div className="connect__creds">
           <div className="connect__credhead">Update credentials <em>— leave blank to keep current</em></div>
@@ -920,6 +936,8 @@ function ConnectChannel({
   const [name, setName] = useState("");
   const [handle, setHandle] = useState("");
   const [cfg, setCfg] = useState<Record<string, string>>({});
+  const [smsCfg, setSmsCfg] = useState(() => smsDefaults());
+  const [smsSecret, setSmsSecret] = useState("");
   /*
    * The two-step verification PIN, kept apart from `cfg` on purpose.
    *
@@ -1050,6 +1068,15 @@ function ConnectChannel({
     for (const f of kind.fields) {
       const val = (cfg[f.key] ?? "").trim();
       if (val) channelConfig[f.key] = val;
+    }
+    if (kind.type === "sms") {
+      const parsed = smsProviderConfigSchema.safeParse(smsCfg);
+      if (!parsed.success) {
+        const issue = parsed.error.issues[0];
+        return onToast(`Check the SMS settings: ${issue?.path.join(".")} — ${issue?.message}`);
+      }
+      channelConfig.smsConfig = JSON.stringify(parsed.data);
+      if (smsSecret) channelConfig.smsSecret = smsSecret;
     }
     create.mutate(
       {
@@ -1186,6 +1213,13 @@ function ConnectChannel({
           <div className="fieldhint" style={{ textAlign: "center" }}>
             — or paste your number’s Phone number ID + Access token from Meta’s API Setup page below —
           </div>
+        </div>
+      )}
+
+      {kind.type === "sms" && (
+        <div className="connect__creds">
+          <div className="connect__credhead">SMS provider</div>
+          <SmsConfigEditor value={smsCfg} onChange={setSmsCfg} secret={smsSecret} onSecret={setSmsSecret} onToast={onToast} />
         </div>
       )}
 
@@ -1990,7 +2024,13 @@ function WorkspacesPane({ onToast }: { onToast: (msg: string) => void }) {
   const mine = useMyWorkspaces();
   const create = useCreateWorkspace();
   const here = mine.data?.workspaces.find((w) => w.current)?.orgId;
-  const rows = list.data ?? [];
+  const all = list.data ?? [];
+  // Archived ones are put away: shown only when asked for.
+  const [showArchived, setShowArchived] = useState(false);
+  const archived = all.filter((w) => w.status === "archived").length;
+  const rows = all.filter((w) => showArchived || w.status !== "archived");
+  const [managing, setManaging] = useState<string | null>(null);
+  const managed = all.find((w) => w.id === managing) ?? null;
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [adminName, setAdminName] = useState("");
@@ -2052,12 +2092,19 @@ function WorkspacesPane({ onToast }: { onToast: (msg: string) => void }) {
     <div className="setpane setpane--wide">
       <div className="setpane__head">
         <div>
-          <h2>Workspaces <span className="setcount">{rows.length}</span></h2>
-          <p>Every workspace on the platform. Each one’s people, channels and conversations are its own — open one to work in it.</p>
+          <h2>Workspaces <span className="setcount">{all.length - archived}</span></h2>
+          <p>Every workspace on the platform. Each one’s people, channels and conversations are its own — open one to work in it, or manage it from here.</p>
         </div>
-        <button className="btn-primary" type="button" onClick={() => setOpen(true)}>
-          <PlusIcon /> New workspace
-        </button>
+        <div className="setform__footactions">
+          {archived > 0 && (
+            <button className="btn-ghost" type="button" onClick={() => setShowArchived((v) => !v)}>
+              {showArchived ? "Hide archived" : `Show archived (${archived})`}
+            </button>
+          )}
+          <button className="btn-primary" type="button" onClick={() => setOpen(true)}>
+            <PlusIcon /> New workspace
+          </button>
+        </div>
       </div>
 
       {invite && (
@@ -2096,7 +2143,9 @@ function WorkspacesPane({ onToast }: { onToast: (msg: string) => void }) {
             <div className="dtable__row dtable__row--static" key={w.id}>
               <span className="dcell dname">
                 <span className="dname__x">
-                  <span className="dcell__t">{w.name}</span>
+                  <span className="dcell__t">
+                    {w.name} <WorkspaceStatusBadge status={w.status} purgeAt={w.purgeAt} />
+                  </span>
                   <span className="dcell__s">
                     Since {new Date(w.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
                     {w.sandbox ? " · demo" : ""}
@@ -2109,16 +2158,21 @@ function WorkspacesPane({ onToast }: { onToast: (msg: string) => void }) {
               <span className="dcell dacts">
                 {w.id === here ? (
                   <span className="dcell--muted">You’re here</span>
-                ) : (
+                ) : w.status === "active" ? (
                   <button className="btn-ghost" type="button" disabled={!!opening} onClick={() => openWorkspace(w.id, w.name, w.joined)}>
                     {opening === w.id ? "Opening…" : "Open"}
                   </button>
-                )}
+                ) : null}
+                <button className="btn-ghost" type="button" onClick={() => setManaging(w.id)}>
+                  Manage
+                </button>
               </span>
             </div>
           ))}
         </div>
       </div>
+
+      {managed && <ManageWorkspace ws={managed} here={managed.id === here} onClose={() => setManaging(null)} onToast={onToast} />}
 
       {open && (
         <div className="modal" onClick={() => setOpen(false)}>
@@ -2153,6 +2207,212 @@ function WorkspacesPane({ onToast }: { onToast: (msg: string) => void }) {
           </form>
         </div>
       )}
+    </div>
+  );
+}
+
+const STATUS_LABEL: Record<WorkspaceStatus, string> = {
+  active: "Active",
+  suspended: "Suspended",
+  archived: "Archived",
+  deleting: "Being deleted",
+};
+
+function WorkspaceStatusBadge({ status, purgeAt }: { status: WorkspaceStatus; purgeAt: string | null }) {
+  if (status === "active") return null;
+  const title = status === "deleting" && purgeAt ? `Deleted for good on ${fmtDay(purgeAt)}` : undefined;
+  return (
+    <span className={"wsbadge wsbadge--" + status} title={title}>
+      {STATUS_LABEL[status]}
+    </span>
+  );
+}
+
+const fmtDay = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+
+/**
+ * One workspace, managed from outside it: its name, its people, and its life —
+ * suspend, archive, delete (restorable for 30 days) or delete now.
+ */
+function ManageWorkspace({
+  ws,
+  here,
+  onClose,
+  onToast,
+}: {
+  ws: PlatformWorkspace;
+  here: boolean;
+  onClose: () => void;
+  onToast: (msg: string) => void;
+}) {
+  const m = useManageWorkspace();
+  const people = useWorkspacePeople(ws.id);
+  const [name, setName] = useState(ws.name);
+  const [pName, setPName] = useState("");
+  const [pEmail, setPEmail] = useState("");
+  const [pRole, setPRole] = useState<Role>("agent");
+  const [link, setLink] = useState<{ name: string; url: string; emailed: boolean } | null>(null);
+  const [wipe, setWipe] = useState(false);
+  const [confirmName, setConfirmName] = useState("");
+  const err = (e: unknown, fallback: string) => onToast(e instanceof Error && e.message ? e.message : fallback);
+  const closable = !ws.platform && !here;
+  const busy = m.setStatus.isPending || m.deleteNow.isPending;
+
+  const saveName = (e: FormEvent) => {
+    e.preventDefault();
+    const n = name.trim();
+    if (!n || n === ws.name) return;
+    m.rename.mutate({ id: ws.id, name: n }, { onSuccess: () => onToast(`Renamed to “${n}”`), onError: (e) => err(e, "Couldn’t rename it") });
+  };
+
+  const showInvite = (who: string, r: PlatformPersonInvite) => {
+    if (r.invite) setLink({ name: who, url: r.invite.url, emailed: r.invite.emailed });
+  };
+  const addPerson = (e: FormEvent) => {
+    e.preventDefault();
+    if (!pName.trim() || !pEmail.trim()) return;
+    const who = pName.trim();
+    m.addPerson.mutate(
+      { id: ws.id, input: { name: who, email: pEmail.trim(), role: pRole } },
+      {
+        onSuccess: (r) => {
+          void people.refetch();
+          showInvite(who, r);
+          onToast(r.addedExisting ? `Added ${who} — they already sign in` : r.invite?.emailed ? `Invite emailed to ${who}` : `Invited ${who} — share their link`);
+          setPName(""); setPEmail(""); setPRole("agent");
+        },
+        onError: (e) => err(e, "Couldn’t add them"),
+      },
+    );
+  };
+  const setRole = (personId: string, role: Role) =>
+    m.setRole.mutate({ id: ws.id, personId, role }, { onSuccess: () => void people.refetch(), onError: (e) => err(e, "Couldn’t change their role") });
+  const remove = (personId: string, who: string) => {
+    if (!window.confirm(`Remove ${who} from “${ws.name}”?`)) return;
+    m.removePerson.mutate({ id: ws.id, personId }, { onSuccess: () => { void people.refetch(); onToast(`${who} removed`); }, onError: (e) => err(e, "Couldn’t remove them") });
+  };
+  const resend = (personId: string, who: string) =>
+    m.resendInvite.mutate({ id: ws.id, personId }, {
+      onSuccess: (r) => { showInvite(who, r); onToast(r.invite?.emailed ? `Invite re-sent to ${who}` : `New invite link for ${who} below`); },
+      onError: (e) => err(e, "Couldn’t re-send it"),
+    });
+
+  const setStatus = (status: WorkspaceStatus, ask?: string, done?: string) => {
+    if (ask && !window.confirm(ask)) return;
+    m.setStatus.mutate({ id: ws.id, status }, { onSuccess: () => onToast(done ?? STATUS_LABEL[status]), onError: (e) => err(e, "Couldn’t change it") });
+  };
+  const deleteNow = (e: FormEvent) => {
+    e.preventDefault();
+    m.deleteNow.mutate({ id: ws.id, confirmName }, {
+      onSuccess: () => { onToast(`“${ws.name}” deleted for good`); onClose(); },
+      onError: (e) => err(e, "Couldn’t delete it"),
+    });
+  };
+
+  return (
+    <div className="modal" onClick={onClose}>
+      <div className="modal__box modal--form wsmanage" onClick={(e) => e.stopPropagation()}>
+        <div className="modal__head">
+          <h2>{ws.name} <WorkspaceStatusBadge status={ws.status} purgeAt={ws.purgeAt} /></h2>
+          <button type="button" className="modal__x" onClick={onClose} aria-label="Close"><XIcon /></button>
+        </div>
+        <div className="modal__body">
+          <form className="wsmanage__row" onSubmit={saveName}>
+            <label className="field" style={{ flex: 1 }}>
+              <span>Workspace name</span>
+              <input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
+            </label>
+            <button className="btn-ghost" type="submit" disabled={m.rename.isPending || !name.trim() || name.trim() === ws.name}>Save</button>
+          </form>
+
+          <h3 className="wsmanage__h">People <span className="setcount">{people.data?.length ?? 0}</span></h3>
+          {link && (
+            <div className="invitebox">
+              <div className="invitebox__head">
+                <b>{link.emailed ? `Invite emailed to ${link.name}` : `Invite link for ${link.name}`}</b>
+                <button className="iconbtn" title="Dismiss" onClick={() => setLink(null)}><XIcon /></button>
+              </div>
+              <div className="copyrow">
+                <input readOnly value={link.url} onFocus={(e) => e.target.select()} />
+                <button className="btn-primary" type="button" onClick={() => void navigator.clipboard.writeText(link.url).then(() => onToast("Link copied"), () => undefined)}>Copy link</button>
+              </div>
+            </div>
+          )}
+          <div className="wspeople">
+            {people.isLoading && <div className="dcell--muted">Loading…</div>}
+            {(people.data ?? []).map((p) => (
+              <div className="wspeople__row" key={p.user.id}>
+                <span className="wspeople__who">
+                  <b>{p.user.name}</b>
+                  <small>{p.user.email}{p.pending ? " · invited, no password yet" : ""}</small>
+                </span>
+                <select value={p.user.role} onChange={(e) => setRole(p.user.id, e.target.value as Role)} aria-label={`${p.user.name}'s role`}>
+                  {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                </select>
+                {p.pending && <button className="btn-ghost" type="button" onClick={() => resend(p.user.id, p.user.name)}>Re-send invite</button>}
+                <button className="iconbtn" type="button" title={`Remove ${p.user.name}`} onClick={() => remove(p.user.id, p.user.name)}><TrashIcon /></button>
+              </div>
+            ))}
+          </div>
+          <form className="wsmanage__row" onSubmit={addPerson}>
+            <input placeholder="Name" value={pName} onChange={(e) => setPName(e.target.value)} aria-label="New person's name" />
+            <input placeholder="Email" type="email" value={pEmail} onChange={(e) => setPEmail(e.target.value)} aria-label="New person's email" />
+            <select value={pRole} onChange={(e) => setPRole(e.target.value as Role)} aria-label="New person's role">
+              {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+            </select>
+            <button className="btn-primary" type="submit" disabled={m.addPerson.isPending || !pName.trim() || !pEmail.trim()}><PlusIcon /> Add</button>
+          </form>
+
+          <h3 className="wsmanage__h">Status</h3>
+          {!closable ? (
+            <p className="fieldhint">
+              {ws.platform ? "The platform’s own workspace can’t be suspended, archived or deleted." : "You’re in this workspace — switch to another one to suspend, archive or delete it."}
+            </p>
+          ) : (
+            <>
+              <p className="fieldhint">
+                {ws.status === "active" && "Active: its people sign in and its channels send and receive."}
+                {ws.status === "suspended" && "Suspended: nobody can sign in, and its channels take nothing in and send nothing out. Everything is kept."}
+                {ws.status === "archived" && "Archived: put away and frozen, kept for ever. Nobody can sign in."}
+                {ws.status === "deleting" && ws.purgeAt && `Being deleted: frozen now, and wiped for good on ${fmtDay(ws.purgeAt)}. Restore it before then to keep it.`}
+              </p>
+              <div className="wsmanage__acts">
+                {ws.status === "active" && (
+                  <button className="btn-ghost" type="button" disabled={busy} onClick={() => setStatus("suspended", `Suspend “${ws.name}”? Everyone in it is signed out straight away, and its channels stop.`, "Suspended")}>Suspend</button>
+                )}
+                {ws.status !== "active" && (
+                  <button className="btn-primary" type="button" disabled={busy} onClick={() => setStatus("active", undefined, ws.status === "deleting" ? "Restored" : ws.status === "archived" ? "Unarchived" : "Reactivated")}>
+                    {ws.status === "deleting" ? "Restore" : ws.status === "archived" ? "Unarchive" : "Reactivate"}
+                  </button>
+                )}
+                {ws.status !== "archived" && ws.status !== "deleting" && (
+                  <button className="btn-ghost" type="button" disabled={busy} onClick={() => setStatus("archived", `Archive “${ws.name}”? It’s frozen and put away, and kept for ever.`, "Archived")}>Archive</button>
+                )}
+                {ws.status !== "deleting" && (
+                  <button className="btn-ghost btn-danger" type="button" disabled={busy} onClick={() => setStatus("deleting", `Delete “${ws.name}”?\n\nIt’s frozen now and wiped for good in ${WORKSPACE_DELETE_GRACE_DAYS} days. You can restore it until then.`, `Deleting — restorable for ${WORKSPACE_DELETE_GRACE_DAYS} days`)}>
+                    <TrashIcon /> Delete
+                  </button>
+                )}
+                <button className="btn-ghost btn-danger" type="button" disabled={busy} onClick={() => setWipe((v) => !v)}>Delete now…</button>
+              </div>
+              {wipe && (
+                <form className="wsmanage__wipe" onSubmit={deleteNow}>
+                  <p>
+                    Everything in <b>{ws.name}</b> — its conversations, customers, files, channels and people — is wiped for good, now. This can’t be undone.
+                    Type its name to confirm.
+                  </p>
+                  <div className="wsmanage__row">
+                    <input value={confirmName} onChange={(e) => setConfirmName(e.target.value)} placeholder={ws.name} aria-label="Workspace name" autoFocus />
+                    <button className="btn-primary btn-danger-fill" type="submit" disabled={confirmName.trim() !== ws.name.trim() || m.deleteNow.isPending}>
+                      {m.deleteNow.isPending ? "Deleting…" : "Delete for good"}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

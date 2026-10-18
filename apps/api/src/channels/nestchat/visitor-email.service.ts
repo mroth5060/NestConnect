@@ -4,6 +4,7 @@ import { Store } from "../../data/store";
 import { Mailer } from "../../mail/mailer.service";
 import { visitorReplyEmail } from "../../mail/templates";
 import { runInTenant } from "../../tenancy/tenant-scope";
+import { isWorkspaceFrozen } from "../../tenancy/workspace-status";
 import { SandboxPolicy } from "../../tenancy/sandbox";
 import { NestChatService } from "./nestchat.service";
 
@@ -72,6 +73,7 @@ export class VisitorEmailService implements OnModuleInit, OnModuleDestroy {
       const due = await this.store.listUnseenNestChatReplies(from, to);
       const sent: string[] = [];
       for (const { conversationId, orgId } of due) {
+        if (isWorkspaceFrozen(orgId)) continue;
         try {
           if (await runInTenant(orgId, () => this.followUp(conversationId, to))) sent.push(conversationId);
         } catch (err) {

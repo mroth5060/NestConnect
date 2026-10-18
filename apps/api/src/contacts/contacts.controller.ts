@@ -236,6 +236,9 @@ export class ContactsController {
     if (body.channel === "whatsapp" && !contact.phone) {
       throw new BadRequestException("This customer has no WhatsApp number on file.");
     }
+    if (body.channel === "sms" && !contact.phone) {
+      throw new BadRequestException("This customer has no phone number on file.");
+    }
     if (body.channel === "email" && !contact.email) {
       throw new BadRequestException("This customer has no email address on file.");
     }

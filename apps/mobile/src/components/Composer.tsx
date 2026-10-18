@@ -232,9 +232,10 @@ export function Composer({
   // Which channels this customer is reachable on inside this thread — shared
   // with the web so the phone and the desktop can't drift apart on it.
   const isGroup = conv.channel === "whatsapp_group";
+  const inboxes = useInboxes();
   const replyTargets = useMemo<ChannelType[]>(
-    () => replyTargetsFor(conv),
-    [conv.channel, conv.contact.phone, conv.contact.email],
+    () => replyTargetsFor(conv, (inboxes.data ?? []).map((i) => i.type)),
+    [conv.channel, conv.contact.phone, conv.contact.email, inboxes.data],
   );
 
   // Default to the channel the customer last used, not the one the thread was
@@ -255,7 +256,6 @@ export function Composer({
   // nothing else on the screen would show it. Resolved with the same function
   // the server sends with, so this can't promise one number and the send use
   // another.
-  const inboxes = useInboxes();
   const fromInbox = useMemo(
     () => sendingInbox(inboxes.data ?? [], conv, { channel }),
     [inboxes.data, conv.inboxId, conv.channel, channel],
@@ -1190,15 +1190,18 @@ export function Composer({
           </Touchable>
         ) : null}
 
-        <Touchable feel="chip"
-          onPress={() => setAttachSheet(true)}
-          accessibilityRole="button"
-          accessibilityLabel="Attach files"
-          hitSlop={6}
-          className="h-9 w-9 items-center justify-center rounded-full"
-        >
-          <AttachIcon size={20} color={c.textMuted} />
-        </Touchable>
+        {/* A text message carries text: SMS has no attachments (a note does). */}
+        {channel !== "sms" || internal ? (
+          <Touchable feel="chip"
+            onPress={() => setAttachSheet(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Attach files"
+            hitSlop={6}
+            className="h-9 w-9 items-center justify-center rounded-full"
+          >
+            <AttachIcon size={20} color={c.textMuted} />
+          </Touchable>
+        ) : null}
         </View>
 
         {/* The trailing action. With nothing written it is a microphone you

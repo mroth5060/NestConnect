@@ -16,6 +16,7 @@ enum ChannelType {
   whatsapp_group
   email
   nestchat
+  sms
 }
 
 enum ConversationStatus {
@@ -74,6 +75,14 @@ model Organization {
   // connected, no email/push/AI leaves it. See tenancy/sandbox.ts.
   sandbox   Boolean  @default(false)
   createdAt DateTime @default(now())
+  // active | suspended | archived | deleting. Anything but active is frozen:
+  // nobody signs in, its channels take nothing in and send nothing out, and its
+  // jobs skip it (tenancy/workspace-status.ts). Set by the platform's owners.
+  status    String   @default("active")
+  statusAt  DateTime?
+  // A workspace being deleted is wiped for good at this time; until then it
+  // can be restored.
+  purgeAt   DateTime?
 
   users         User[]
   teams         Team[]
