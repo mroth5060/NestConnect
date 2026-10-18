@@ -207,6 +207,27 @@ export function buildStatusPoll(cfg: SmsProviderConfig, secret: string | undefin
   return request(cfg, secret, values(cfg, secret, vars), cfg.status.method, cfg.status.path, cfg.status.headers);
 }
 
+/** The request behind a param's "Find" button: list the account's options. */
+export function buildLookup(cfg: SmsProviderConfig, secret: string | undefined, path: string): SmsRequest {
+  return request(cfg, secret, values(cfg, secret, {}), "GET", path);
+}
+
+/** The options a lookup found: each one's value, and a label to choose it by. */
+export function readLookup(
+  body: unknown,
+  lookup: { itemsPath?: string; valuePath: string; labelPath?: string },
+): { value: string; label: string }[] {
+  const list = lookup.itemsPath ? readPath(body, lookup.itemsPath) : body;
+  const items = Array.isArray(list) ? list : list && typeof list === "object" ? [list] : [];
+  const out: { value: string; label: string }[] = [];
+  for (const item of items) {
+    const value = asText(readPath(item, lookup.valuePath));
+    if (!value) continue;
+    out.push({ value, label: asText(readPath(item, lookup.labelPath)) ?? value });
+  }
+  return out.slice(0, 100);
+}
+
 /* ---- answers ---- */
 
 /** What the provider said about a send. */
@@ -218,7 +239,6 @@ export function readSendResponse(
 ): { ok: boolean; providerId?: string; error?: string; mapped: Record<string, unknown> } {
   const body = parseBody(text, contentType);
   const providerId = asText(readPath(body, cfg.send.messageIdPath));
-  const error = asText(readPath(body, cfg.send.errorPath));
   let ok = status >= 200 && status < 300;
   if (ok && cfg.send.successPath) {
     const v = readPath(body, cfg.send.successPath);
@@ -226,12 +246,40 @@ export function readSendResponse(
       ? String(v).toLowerCase() === cfg.send.successValue.toLowerCase()
       : v === true || v === "true" || v === 1 || v === "1" || v === "ok" || v === "success";
   }
+  // The mapped error, or — when that path finds nothing — whatever in the
+  // answer looks like one, so a refusal always says why.
+  const error = ok ? undefined : asText(readPath(body, cfg.send.errorPath)) ?? findError(body);
   return {
     ok,
     providerId,
     error: ok ? undefined : error ?? (status >= 300 ? `HTTP ${status}` : "The provider didn't say it was sent"),
     mapped: { success: ok, messageId: providerId ?? null, error: error ?? null },
   };
+}
+
+const ERROR_KEYS = ["error", "errors", "error_message", "errormessage", "message", "detail", "description", "reason"];
+
+/** The first error-looking text in an answer: under an "error"-ish key first. */
+export function findError(body: unknown, depth = 0): string | undefined {
+  if (depth > 5 || !body || typeof body !== "object") return undefined;
+  if (Array.isArray(body)) {
+    for (const x of body) {
+      const e = findError(x, depth + 1);
+      if (e) return e;
+    }
+    return undefined;
+  }
+  const entries = Object.entries(body as Record<string, unknown>);
+  const rank = (k: string) => {
+    const i = ERROR_KEYS.indexOf(k.toLowerCase());
+    return i === -1 ? (/err/i.test(k) ? ERROR_KEYS.length : 99) : i;
+  };
+  for (const [k, v] of entries.sort((a, b) => rank(a[0]) - rank(b[0]))) {
+    if (typeof v === "string" && v.trim() && rank(k) < 99) return v.trim().slice(0, 300);
+    const e = findError(v, depth + 1);
+    if (e) return e;
+  }
+  return undefined;
 }
 
 /** The texts in a webhook's or a poll's body. */

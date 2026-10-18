@@ -56,7 +56,9 @@ export function SmsConfigEditor({
   const caps = smsCapabilities(cfg);
 
   const choosePreset = (key: string) => {
-    if (key === cfg.preset) return;
+    // Picking the same preset again starts over from it — the way to pick up
+    // a preset that's been corrected since the channel was set up.
+    if (key === cfg.preset && JSON.stringify(cfg) === JSON.stringify(smsDefaults(key))) return;
     if (cfg.preset && !window.confirm("Start again from this provider's settings? What you've changed here is replaced.")) return;
     onChange(smsDefaults(key));
   };
@@ -87,10 +89,17 @@ export function SmsConfigEditor({
       {cfg.params.length > 0 && (
         <div className="setform__grid two">
           {cfg.params.map((p, i) => (
-            <label className="field" key={i}>
-              <span>{labelFor(p.name)}</span>
-              <input value={p.value} onChange={(e) => set({ params: cfg.params.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)) })} />
-            </label>
+            <ParamField
+              key={i}
+              cfg={cfg}
+              name={p.name}
+              value={p.value}
+              canFind={!!p.lookup}
+              secret={secret}
+              inboxId={inboxId}
+              onChange={(v) => set({ params: cfg.params.map((x, j) => (j === i ? { ...x, value: v } : x)) })}
+              onToast={onToast}
+            />
           ))}
         </div>
       )}
@@ -393,6 +402,75 @@ function CopyUrl({ label, url, onToast }: { label: string; url: string; onToast:
 }
 
 /** Try the settings before trusting them: a real text, one fetch, a sample. */
+/**
+ * One of the channel's own settings. Where the provider can list the choices
+ * (DialMyCalls' numbers, say), "Find" asks it — with the key as typed, or the
+ * saved one — and offers them by name, so nobody has to dig out an id.
+ */
+function ParamField({
+  cfg,
+  name,
+  value,
+  canFind,
+  secret,
+  inboxId,
+  onChange,
+  onToast,
+}: {
+  cfg: SmsProviderConfig;
+  name: string;
+  value: string;
+  canFind: boolean;
+  secret: string;
+  inboxId?: string;
+  onChange: (v: string) => void;
+  onToast: (msg: string) => void;
+}) {
+  const [options, setOptions] = useState<{ value: string; label: string }[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const find = () => {
+    const parsed = smsProviderConfigSchema.safeParse(cfg);
+    if (!parsed.success) return onToast("Fix the settings first: " + parsed.error.issues[0]?.message);
+    if (!secret && !inboxId) return onToast("Enter the API key first");
+    setBusy(true);
+    api
+      .testSms({ config: parsed.data, action: "lookup", param: name, ...(secret ? { secret } : {}), ...(inboxId ? { inboxId } : {}) })
+      .then(
+        (r) => {
+          if (!r.ok || !r.options?.length) return onToast(r.summary);
+          setOptions(r.options);
+          if (!value && r.options.length === 1) onChange(r.options[0]!.value);
+        },
+        (e: Error) => onToast(e.message),
+      )
+      .finally(() => setBusy(false));
+  };
+  return (
+    <label className="field">
+      <span>{labelFor(name)}</span>
+      <div className="smscfg__inline">
+        {options ? (
+          <select value={value} onChange={(e) => onChange(e.target.value)}>
+            {!options.some((o) => o.value === value) && <option value={value}>{value || "Choose…"}</option>}
+            {options.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input value={value} onChange={(e) => onChange(e.target.value)} />
+        )}
+        {canFind && (
+          <button type="button" className="btn-ghost" onClick={find} disabled={busy}>
+            {busy ? "Finding…" : "Find"}
+          </button>
+        )}
+      </div>
+    </label>
+  );
+}
+
 function Tester({ cfg, secret, inboxId }: { cfg: SmsProviderConfig; secret: string; inboxId?: string }) {
   const [to, setTo] = useState("");
   const [sample, setSample] = useState("");
@@ -483,5 +561,6 @@ function AiFill({ onFill, onToast }: { onFill: (cfg: SmsProviderConfig, notes: s
   );
 }
 
-const labelFor = (name: string) => name.replace(/_/g, " ").replace(/\b(id|sid)\b/gi, (m) => m.toUpperCase()).replace(/^./, (c) => c.toUpperCase());
+const PARAM_LABELS: Record<string, string> = { vanitynumber_id: "Sending number" };
+const labelFor = (name: string) => PARAM_LABELS[name] ?? name.replace(/_/g, " ").replace(/\b(id|sid)\b/gi, (m) => m.toUpperCase()).replace(/^./, (c) => c.toUpperCase());
 
