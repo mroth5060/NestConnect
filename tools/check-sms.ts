@@ -35,7 +35,7 @@ import { IngestService } from "../apps/api/src/channels/ingest.service";
 import { ChannelDispatcher } from "../apps/api/src/channels/channel-dispatcher";
 import { SmsService, SMS_KEYS } from "../apps/api/src/channels/sms/sms.service";
 import { SmsProvider } from "../apps/api/src/channels/sms/sms.provider";
-import { buildSend, normalizePhone, readPath, readSendResponse, type SmsRequest, type SmsHttpResponse } from "../apps/api/src/channels/sms/sms-engine";
+import { buildSend, normalizePhone, readLookup, readPath, readSendResponse, type SmsRequest, type SmsHttpResponse } from "../apps/api/src/channels/sms/sms-engine";
 import type { RealtimeGateway } from "../apps/api/src/realtime/realtime.gateway";
 import type { TenantContext } from "../apps/api/src/tenancy/tenant-context";
 import type { PushService } from "../apps/api/src/push/push.service";
@@ -70,15 +70,21 @@ const json = (status: number, body: unknown): SmsHttpResponse => ({ status, text
 
 async function main(): Promise<void> {
   console.log("\nA — the engine builds each provider's request\n");
-  const dmc = preset("dialmycalls", (c) => (c.params = [{ name: "keyword_id", value: "kw-123" }]));
+  const dmc = preset("dialmycalls", (c) => (c.params = [{ ...c.params[0]!, value: "vn-123" }]));
   const reqD = buildSend(dmc, "dmc-secret", { to: "+1 (555) 201-3344", text: "Hi there", from: "+15550001111", message_id: "msg_9" });
   const bodyD = JSON.parse(reqD.body!);
   ok("DialMyCalls: POST to /service/text", reqD.method === "POST" && reqD.url === "https://api.dialmycalls.com/2.0/service/text", reqD.url);
   ok("…with the key in X-Auth-ApiKey", reqD.headers["X-Auth-ApiKey"] === "dmc-secret");
-  ok("…a broadcast to one contact, from the keyword, sent now", bodyD.keyword_id === "kw-123" && bodyD.messages[0] === "Hi there" && bodyD.contacts[0].phone === "5552013344" && bodyD.send_immediately === true, reqD.body);
-  const readD = readSendResponse(dmc, 200, JSON.stringify({ success: true, response: { id: "svc-1" } }));
+  ok("…a broadcast to one contact, from the chosen number, sent now", bodyD.vanitynumber_id === "vn-123" && bodyD.messages[0] === "Hi there" && bodyD.contacts[0].phone === "5552013344" && bodyD.send_immediately === true, reqD.body);
+  const readD = readSendResponse(dmc, 200, JSON.stringify({ results: { id: "svc-1" }, meta: { result: "success" } }));
   ok("…and its answer read: sent, with the broadcast id", readD.ok && readD.providerId === "svc-1");
-  ok("…a refusal read as one, with its reason", (() => { const r = readSendResponse(dmc, 200, JSON.stringify({ success: false, error: { message: "Insufficient credits" } })); return !r.ok && r.error === "Insufficient credits"; })());
+  // Word for word what DialMyCalls answered a send without a number.
+  const refusedD = readSendResponse(dmc, 400, '{"results":{"error":{"message":"Please provide a valid `vanitynumber_id`. You can get a list of vanity numbers from `\\/2.0\\/vanitynumbers`."}},"meta":{"result":"failure","status":400}}');
+  ok("…a refusal read as one, with its reason", !refusedD.ok && /valid `vanitynumber_id`/.test(refusedD.error ?? "") && refusedD.mapped.error === refusedD.error, JSON.stringify(refusedD));
+  ok("…a 200 that says failure is a failure", !readSendResponse(dmc, 200, JSON.stringify({ results: {}, meta: { result: "failure" } })).ok);
+  const lookup = dmc.params[0]!.lookup!;
+  const numbers = readLookup({ results: [{ id: "vn-1", phone: "8005551234", status: "active" }, { id: "vn-2", phone: "8005559999" }], meta: { result: "success" } }, lookup);
+  ok("its numbers can be listed, to pick one by phone number", numbers.length === 2 && numbers[0]!.value === "vn-1" && numbers[0]!.label === "8005551234", JSON.stringify(numbers));
 
   const tw = preset("twilio", (c) => (c.params = [{ name: "account_sid", value: "AC123" }]));
   const reqT = buildSend(tw, "tw-token", { to: "+447700900123", text: "Hello & welcome", from: "+447700900999", status_url: "https://nc.example/api/channels/sms/x/status/t" });
@@ -123,7 +129,7 @@ async function main(): Promise<void> {
     });
 
     console.log("\nB — polling for texts\n");
-    const incoming = (items: unknown[]) => () => json(200, { success: true, response: items });
+    const incoming = (items: unknown[]) => () => json(200, { results: items, meta: { result: "success" } });
     fake.answer = incoming([{ id: "in-old", from_number: "5559990000", to_number: "5550001111", message: "old%20news", created_at: "2026-01-01 10:00:00" }]);
     let res = await sms.pollChannel(inbox.id, new Date("2026-10-18T10:00:00Z"));
     const asked = fake.calls.at(-1)!;
@@ -146,14 +152,14 @@ async function main(): Promise<void> {
 
     console.log("\nC — replying, and receipts\n");
     const reply = { id: "msg_r1", conversationId: conv!.id, body: "Yes — collect any time today.", channel: "sms", direction: "out", internal: false, attachments: [] } as unknown as Message;
-    fake.answer = () => json(200, { success: true, response: { id: "svc-77" } });
+    fake.answer = () => json(200, { results: { id: "svc-77" }, meta: { result: "success" } });
     const sent = await dispatcher.attemptSend(full!, reply);
     const call = fake.calls.at(-1)!;
     ok("a reply goes out through the provider", sent.ok && call.url.endsWith("/service/text") && JSON.parse(call.body!).contacts[0].phone === "5552013344", JSON.stringify(sent));
     ok("…from this channel", sent.ok && sent.inboxId === inbox.id);
     ok("…keeping the provider's id, unique to the channel", sent.ok && sent.channelMsgId === `sms:${inbox.id}:svc-77`);
 
-    fake.answer = () => json(402, { success: false, error: { message: "Insufficient credits" } });
+    fake.answer = () => json(402, { results: { error: { message: "Insufficient credits" } }, meta: { result: "failure" } });
     const refused = await dispatcher.attemptSend(full!, reply);
     ok("a refusal fails for good, saying why", !refused.ok && !refused.retryable && refused.reason === "SMS: DialMyCalls: Insufficient credits", JSON.stringify(refused));
     fake.answer = () => json(503, {});
@@ -170,7 +176,7 @@ async function main(): Promise<void> {
     const msg = await store.addMessage(conv!.id, { body: "On its way", internal: false }, me);
     await store.setMessageInbox(msg!.id, inbox.id);
     await store.markMessageSent(msg!.id, `sms:${inbox.id}:svc-88`);
-    fake.answer = (req) => (req.url.endsWith("/service/text/svc-88/recipients") ? json(200, { success: true, response: [{ phone: "5552013344", status: "delivered", successful: true }] }) : json(200, { success: true, response: [] }));
+    fake.answer = (req) => (req.url.endsWith("/service/text/svc-88/recipients") ? json(200, { results: [{ phone: "5552013344", status: "delivered", successful: true }], meta: { result: "success" } }) : json(200, { results: [], meta: { result: "success" } }));
     res = await sms.pollChannel(inbox.id, new Date(), { force: true });
     const after = (await store.getConversation(conv!.id))!.messages.find((m) => m.id === msg!.id);
     ok("receipts are polled and applied: delivered", res.receipts >= 1 && after?.status === "delivered", `${res.receipts} ${after?.status}`);
@@ -203,12 +209,21 @@ async function main(): Promise<void> {
     ok("their texts land on the same contact as their WhatsApp", !!kit);
 
     console.log("\nF — testing from settings\n");
-    fake.answer = () => json(200, { success: true, response: { id: "svc-test" } });
+    fake.answer = () => json(200, { results: { id: "svc-test" }, meta: { result: "success" } });
     const t = await sms.test({ config: dmc, action: "send", to: "+15552013344", text: "Test" }, { inboxId: inbox.id });
     ok("a test text is sent, with the stored key", t.ok && /svc-test/.test(t.summary) && fake.calls.at(-1)!.headers["X-Auth-ApiKey"] === "dmc-secret", t.summary);
     ok("…and what was sent is shown with the key blanked", !!t.request && t.request.headers["X-Auth-ApiKey"] === "••••••" && !JSON.stringify(t.request).includes("dmc-secret"));
     const p = await sms.test({ config: twilioish, action: "parse", sample: "From=%2B15550001234&Body=Hi+there&MessageSid=SMx" });
     ok("a sample webhook body is read with the mapping", p.ok && /\+15550001234/.test(p.summary) && /Hi there/.test(p.summary), p.summary);
+    fake.answer = (req) => (req.url.endsWith("/vanitynumbers") ? json(200, { results: [{ id: "vn-9", phone: "8005550199" }], meta: { result: "success" } }) : json(404, {}));
+    const found = await sms.test({ config: dmc, action: "lookup", param: "vanitynumber_id", secret: "typed-key" });
+    ok("Find lists the account's numbers, with the key as typed", found.ok && found.options?.[0]?.value === "vn-9" && found.options[0].label === "8005550199" && fake.calls.at(-1)!.headers["X-Auth-ApiKey"] === "typed-key", found.summary);
+    fake.answer = () => json(400, { results: { error: { message: "Please provide a valid `vanitynumber_id`." } }, meta: { result: "failure" } });
+    const why = await sms.test({ config: dmc, action: "send", to: "+15552013344" }, { inboxId: inbox.id });
+    ok("a refused test says why, in the provider's words", !why.ok && /valid `vanitynumber_id`/.test(why.summary) && /vanitynumber_id/.test(String(why.mapped?.error)), why.summary);
+    fake.answer = () => json(422, { code: 21211, errors: [{ detail: "The 'To' number is not valid" }] });
+    const unmapped = await sms.test({ config: custom, action: "send", to: "+15550000000" });
+    ok("…even when its error isn't where the config looks", !unmapped.ok && /'To' number is not valid/.test(unmapped.summary), unmapped.summary);
     const bad = await sms.test({ config: { ...custom, send: { ...custom.send, body: "{ not json" } }, action: "send", to: "+15550000000" });
     ok("a body that isn't JSON says so, rather than sending", !bad.ok && /isn't valid JSON/.test(bad.summary), bad.summary);
   });

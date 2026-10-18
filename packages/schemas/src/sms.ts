@@ -27,6 +27,15 @@ const pairSchema = z.object({ name: z.string().trim().min(1).max(100), value: z.
 export type SmsPair = z.infer<typeof pairSchema>;
 
 const pathSchema = z.string().trim().max(200);
+
+/** A channel param the provider can list for us (a sender number, a keyword):
+ *  the editor's "Find" fetches `path` and offers each item's value by its label. */
+const paramSchema = pairSchema.extend({
+  lookup: z
+    .object({ path: pathSchema.min(1), itemsPath: pathSchema.optional(), valuePath: pathSchema.min(1), labelPath: pathSchema.optional() })
+    .optional(),
+});
+export type SmsParam = z.infer<typeof paramSchema>;
 const words = z.array(z.string().trim().min(1).max(60)).max(20);
 
 export const smsAuthSchema = z.object({
@@ -110,7 +119,7 @@ export const smsProviderConfigSchema = z.object({
   /** Sent with every request. Values are templates. */
   headers: z.array(pairSchema).max(20).default([]),
   /** The channel's own settings, used as {{param.<name>}} — never secret. */
-  params: z.array(pairSchema).max(20).default([]),
+  params: z.array(paramSchema).max(20).default([]),
   /** Digits only, e.g. "1" or "44": how a number written without one is read,
    *  and what {{to_local}} leaves off. */
   countryCode: z.string().trim().regex(/^\d{0,4}$/).default(""),
@@ -163,8 +172,10 @@ export const testSmsInputSchema = z.object({
   /** Absent: the channel's stored secret (when testing a saved channel). */
   secret: z.string().max(2000).optional(),
   /** "send": text this number for real. "inbound": run the inbound poll once,
-   *  importing nothing. "parse": read a sample webhook body. */
-  action: z.enum(["send", "inbound", "parse"]),
+   *  importing nothing. "parse": read a sample webhook body. "lookup": list
+   *  the options for the param named `param`. */
+  action: z.enum(["send", "inbound", "parse", "lookup"]),
+  param: z.string().trim().max(100).optional(),
   to: z.string().trim().max(40).optional(),
   text: z.string().max(1600).optional(),
   sample: z.string().max(20_000).optional(),
@@ -179,6 +190,8 @@ export interface SmsTestResult {
   response?: { status: number; body: string };
   /** What the mapping read out of the answer. */
   mapped?: Record<string, unknown>;
+  /** A lookup's options. */
+  options?: { value: string; label: string }[];
 }
 
 /** Paste a provider's API documentation (or OpenAPI spec); get a config to start from. */
@@ -199,7 +212,7 @@ export interface SuggestedSmsConfig {
 export const SMS_PRESETS: Record<string, { label: string; blurb: string; secretLabel: string; config: SmsProviderConfigInput }> = {
   dialmycalls: {
     label: "DialMyCalls",
-    blurb: "Texts from your DialMyCalls keyword number. Replies are fetched every minute — DialMyCalls has no webhooks — and so are delivery receipts.",
+    blurb: "Texts from one of your DialMyCalls numbers — use Find to pick it. Replies are fetched every minute — DialMyCalls has no webhooks — and so are delivery receipts.",
     secretLabel: "API key",
     config: {
       provider: "DialMyCalls",
@@ -207,7 +220,13 @@ export const SMS_PRESETS: Record<string, { label: string; blurb: string; secretL
       baseUrl: "https://api.dialmycalls.com/2.0",
       auth: { type: "header", headerName: "X-Auth-ApiKey" },
       headers: [{ name: "Accept", value: "application/json" }],
-      params: [{ name: "keyword_id", value: "" }],
+      params: [
+        {
+          name: "vanitynumber_id",
+          value: "",
+          lookup: { path: "/vanitynumbers", itemsPath: "results|response|$", valuePath: "id", labelPath: "phone" },
+        },
+      ],
       countryCode: "1",
       maxLength: 1600,
       send: {
@@ -217,7 +236,7 @@ export const SMS_PRESETS: Record<string, { label: string; blurb: string; secretL
         body: JSON.stringify(
           {
             name: "NestConnect {{message_id}}",
-            keyword_id: "{{param.keyword_id}}",
+            vanitynumber_id: "{{param.vanitynumber_id}}",
             messages: ["{{text}}"],
             contacts: [{ phone: "{{to_local}}" }],
             send_immediately: true,
@@ -225,9 +244,11 @@ export const SMS_PRESETS: Record<string, { label: string; blurb: string; secretL
           null,
           2,
         ),
-        successPath: "success",
-        messageIdPath: "response.id|id",
-        errorPath: "error.message|error|message",
+        // Answers come as { results: …, meta: { result: "success" | "failure" } }.
+        successPath: "meta.result",
+        successValue: "success",
+        messageIdPath: "results.id|response.id|id",
+        errorPath: "results.error.message|error.message|meta.message",
       },
       inbound: {
         mode: "poll",
@@ -235,7 +256,7 @@ export const SMS_PRESETS: Record<string, { label: string; blurb: string; secretL
         path: "/incoming/texts",
         headers: [{ name: "Range", value: "records=1-100" }],
         intervalSeconds: 60,
-        itemsPath: "response|$",
+        itemsPath: "results|response|$",
         idPath: "id",
         fromPath: "from_number",
         toPath: "to_number",
@@ -248,7 +269,7 @@ export const SMS_PRESETS: Record<string, { label: string; blurb: string; secretL
         method: "GET",
         path: "/service/text/{{message_id}}/recipients",
         intervalSeconds: 120,
-        itemsPath: "response|$",
+        itemsPath: "results|response|$",
         statusPath: "status",
         delivered: ["delivered"],
         failed: ["undeliverable", "non_mobile"],

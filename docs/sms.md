@@ -21,7 +21,7 @@ It is validated by `smsProviderConfigSchema` in `packages/schemas/src/sms.ts`.
 | --- | --- |
 | `provider`, `baseUrl` | The provider's name (shown in errors and the thread) and API root. |
 | `auth` | `none`, `bearer`, `basic` (username + secret), `header` (named header) or `query` (named parameter). The secret itself is stored apart from the config (`smsSecret`), encrypted, and never sent back to the browser. |
-| `headers`, `params` | Headers sent with every request. Non-secret account settings (keyword id, account SID, …), used as `{{param.name}}`. |
+| `headers`, `params` | Headers sent with every request. Non-secret account settings (sending number id, account SID, …), used as `{{param.name}}`. A param can carry a `lookup` (a GET path, plus where the list is and each item's value and label). The editor then shows **Find**, which asks the provider for the options so nobody has to dig out an id. |
 | `countryCode`, `maxLength` | For providers that want or return numbers without a country code. The longest text one request may carry. |
 | `send` | Method, path, body format (`json`, `form`, `none`) and body template. Plus where the answer says it worked (`successPath`/`successValue`), the provider's message id (`messageIdPath`) and its error (`errorPath`). |
 | `inbound` | How replies arrive: `webhook`, `poll` or `none`. For polling: the request, its interval and `itemsPath`. Then where each text's id, from, to, text and time are. `textEncoding: "url"` for providers that URL-encode the text. |
@@ -70,6 +70,10 @@ chips.
   customer is one contact across both. Message ids are stored as
   `sms:<inboxId>:<providerId>`. A text that arrives twice (a webhook retry,
   or overlapping polls) is recorded once.
+- **Errors.** When a send fails and the configured `errorPath` finds nothing,
+  the engine looks through the answer for anything error-like (`error`,
+  `errors`, `message`, `detail`, …). A refusal always shows the provider's
+  reason, not just a status code.
 - **Frozen workspaces** don't send, poll or take webhooks.
 
 ## Testing a config
@@ -97,9 +101,14 @@ button explains that it needs one.
 ## DialMyCalls
 
 - **Auth:** API key in the `X-Auth-ApiKey` header.
-- **Keyword ID:** required. It's the DialMyCalls keyword (short code / number)
-  the texts go out from. Find it in DialMyCalls under Keywords, or from
-  `GET /keywords`.
+- **Sending number:** required. It's the `vanitynumber_id` of the DialMyCalls
+  number the texts go out from. Enter the API key, then press **Find** next to
+  it to pick the number (it calls `GET /vanitynumbers`). The send API refuses
+  texts without one. Older docs and SDKs say `keyword_id`; the live API wants
+  `vanitynumber_id`.
+- **Answers:** wrapped as `{"results": …, "meta": {"result": "success" | "failure"}}`.
+  Success is read from `meta.result`, the broadcast id from `results.id`, and
+  errors from `results.error.message`.
 - **Sending:** each text is a "broadcast" (`POST /service/text`) to one
   contact, sent immediately. It costs the account's text credits like any
   other broadcast.

@@ -19,10 +19,13 @@ import { isRetryableStatus, type SendResult } from "../channel-provider";
 import { IngestService } from "../ingest.service";
 import {
   buildInboundPoll,
+  buildLookup,
   buildSend,
   buildStatusPoll,
+  findError,
   parseBody,
   readInbound,
+  readLookup,
   readSendResponse,
   readStatus,
   redactRequest,
@@ -344,10 +347,27 @@ export class SmsService implements OnApplicationBootstrap, OnModuleDestroy {
         const texts = res.status >= 200 && res.status < 300 ? readInbound(cfg, parseBody(res.text, res.contentType)) : [];
         return {
           ok: res.status >= 200 && res.status < 300,
-          summary: res.status === 0 ? `Couldn't reach the provider: ${res.text}` : res.status >= 300 ? `The provider answered HTTP ${res.status}.` : `Connected. ${texts.length} text(s) in the answer${texts[0] ? `, the first from ${texts[0].from}` : ""}. Nothing was imported.`,
+          summary: res.status === 0 || res.status >= 300 ? failedAnswer(res) : `Connected. ${texts.length} text(s) in the answer${texts[0] ? `, the first from ${texts[0].from}` : ""}. Nothing was imported.`,
           request: redactRequest(req, secret),
           response: { status: res.status, body: res.text.slice(0, 4000) },
           mapped: { texts: texts.slice(0, 5) },
+        };
+      }
+      if (input.action === "lookup") {
+        const lookup = cfg.params.find((p) => p.name === input.param)?.lookup;
+        if (!lookup) return { ok: false, summary: "This setting has nothing to look up." };
+        const req = buildLookup(cfg, secret, lookup.path);
+        const res = await this.http(req);
+        const good = res.status >= 200 && res.status < 300;
+        const options = good ? readLookup(parseBody(res.text, res.contentType), lookup) : [];
+        return {
+          ok: options.length > 0,
+          summary: !good
+            ? failedAnswer(res)
+            : options.length ? `Found ${options.length}.` : "The provider listed nothing — check the API key, or the lookup's paths.",
+          request: redactRequest(req, secret),
+          response: { status: res.status, body: res.text.slice(0, 4000) },
+          options,
         };
       }
       if (!input.to) return { ok: false, summary: "Say which number to text." };
@@ -366,6 +386,13 @@ export class SmsService implements OnApplicationBootstrap, OnModuleDestroy {
       throw err;
     }
   }
+}
+
+/** Why a request didn't work, in the provider's words where it gave any. */
+function failedAnswer(res: { status: number; text: string; contentType?: string }): string {
+  if (res.status === 0) return `Couldn't reach the provider: ${res.text}`;
+  const why = findError(parseBody(res.text, res.contentType));
+  return `The provider answered HTTP ${res.status}${why ? `: ${why}` : "."}`;
 }
 
 function sameToken(a: string, b: string): boolean {
