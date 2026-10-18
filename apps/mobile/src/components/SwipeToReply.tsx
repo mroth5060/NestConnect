@@ -6,11 +6,12 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { View } from "react-native";
 import { haptics } from "../haptics";
 import { ReplyIcon } from "../icons";
 import { useTheme } from "../theme";
+import { useStableCallback } from "../stable-callback";
 
 /**
  * `FULL` is where the arrow reaches full size; `COMMIT` is where letting go
@@ -87,15 +88,16 @@ export function SwipeToReply({
   const [h, setH] = useState(0);
   const dir = mine ? -1 : 1;
 
-  function commit() {
+  const commit = useStableCallback(() => {
     // Order matters: the reply is the point, the buzz is decoration. `haptics`
     // can never throw, but keeping the real work first means it stays true even
     // if that changes.
     onReply();
     haptics.tap();
-  }
+  });
 
-  const pan = Gesture.Pan()
+  // Built once per side and on/off: see `useStableCallback`.
+  const pan = useMemo(() => Gesture.Pan()
     // Only a decisively horizontal drag is ours; anything vertical belongs to
     // the scroll view.
     .activeOffsetX(mine ? [-12, 99999] : [-99999, 12])
@@ -110,7 +112,7 @@ export function SwipeToReply({
     .onEnd(() => {
       if (x.value >= COMMIT) runOnJS(commit)();
       x.value = withTiming(0, { duration: 200 });
-    });
+    }), [x, mine, dir, enabled, commit]);
 
   const bubble = useAnimatedStyle(() => ({
     transform: [{ translateX: dir * x.value }],

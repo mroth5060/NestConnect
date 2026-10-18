@@ -6,11 +6,12 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import { View } from "react-native";
 import { haptics } from "../haptics";
 import { useTheme } from "../theme";
 import { timing } from "../motion";
+import { useStableCallback } from "../stable-callback";
 
 /**
  * `FULL` is where the action's icon reaches full size; `COMMIT` is where letting
@@ -63,15 +64,19 @@ export function SwipeRow({
   const draggedAt = useRef(0);
   const swiped = () => Date.now() - draggedAt.current < 500;
 
-  const fire = (side: "left" | "right") => {
+  const fire = useStableCallback((side: "left" | "right") => {
     haptics.tap();
     (side === "left" ? left : right)?.onCommit();
-  };
-  const markDragged = () => {
+  });
+  const markDragged = useStableCallback(() => {
     draggedAt.current = Date.now();
-  };
+  });
+  // Whether each side exists, not the side objects themselves: those are new
+  // on every render, and the gesture is built once (see `useStableCallback`).
+  const hasLeft = !!left;
+  const hasRight = !!right;
 
-  const pan = Gesture.Pan()
+  const pan = useMemo(() => Gesture.Pan()
     // Only a decisively horizontal drag is ours; anything vertical belongs to
     // the list, which is what people are doing 95% of the time.
     .activeOffsetX([-14, 14])
@@ -84,8 +89,8 @@ export function SwipeRow({
     })
     .onUpdate((e) => {
       const raw = e.translationX;
-      if (raw > 0 && !left) return void (x.value = 0);
-      if (raw < 0 && !right) return void (x.value = 0);
+      if (raw > 0 && !hasLeft) return void (x.value = 0);
+      if (raw < 0 && !hasRight) return void (x.value = 0);
       // Damped past the commit point, so the row can't be dragged across the
       // screen and back.
       const mag = Math.abs(raw);
@@ -94,10 +99,10 @@ export function SwipeRow({
     })
     .onEnd(() => {
       runOnJS(markDragged)();
-      if (x.value >= COMMIT && left) runOnJS(fire)("left");
-      else if (x.value <= -COMMIT && right) runOnJS(fire)("right");
+      if (x.value >= COMMIT && hasLeft) runOnJS(fire)("left");
+      else if (x.value <= -COMMIT && hasRight) runOnJS(fire)("right");
       x.value = withTiming(0, timing.base);
-    });
+    }), [x, hasLeft, hasRight, fire, markDragged]);
 
   const row = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
 

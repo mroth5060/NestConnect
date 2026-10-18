@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -17,6 +17,7 @@ import { mediaSource } from "../api-config";
 import { DownloadIcon, XIcon } from "../icons";
 import { useInsets } from "../insets";
 import { useThemeVars } from "../theme";
+import { useStableCallback } from "../stable-callback";
 import { saveAttachment } from "../attachment-open";
 import { useToast } from "./Toast";
 import { Touchable } from "./Touchable";
@@ -79,7 +80,9 @@ export function MediaViewer({
   const drag = useSharedValue(0);
   const DISMISS_AT = 110;
 
-  const dismiss = Gesture.Pan()
+  // Built once, like the Sheet's: see `useStableCallback`.
+  const close = useStableCallback(onClose);
+  const dismiss = useMemo(() => Gesture.Pan()
     .activeOffsetY([-14, 14])
     .failOffsetX([-20, 20])
     .onUpdate((e) => {
@@ -91,9 +94,9 @@ export function MediaViewer({
       // makes the quick one feel ignored.
       const far = Math.abs(drag.value) > DISMISS_AT;
       const fast = Math.abs(e.velocityY) > 900 && Math.abs(drag.value) > 40;
-      if (far || fast) runOnJS(onClose)();
+      if (far || fast) runOnJS(close)();
       else drag.value = withTiming(0, timing.base);
-    });
+    }), [drag, close]);
 
   const pulled = useAnimatedStyle(() => ({
     // `flex: 1` belongs here rather than in a second style object beside it: an
