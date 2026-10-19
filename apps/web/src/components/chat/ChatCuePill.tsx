@@ -8,7 +8,7 @@ import { Avatar } from "../Avatar";
 const SHOW_MS = 6_000;
 
 /**
- * A Team Chat message, popped up at the bottom of the page: who, where, what.
+ * A Team Chat message, popped up at the top of the page: who, where, what.
  *
  * Only for what the server says this person should hear about — so never a
  * muted chat or their own message — and never for the chat they already have
@@ -62,6 +62,9 @@ export function ChatCuePill({ onOpen }: { onOpen: (roomId: string) => void }) {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
+      {/* Rings rippling out from the pill's edge as it lands. Keyed by the
+          message, so each new one ripples afresh rather than only the first. */}
+      {shown && <span className="cuepill__ripple" key={cue.key} aria-hidden="true" />}
       <button
         type="button"
         className="cuepill__main"

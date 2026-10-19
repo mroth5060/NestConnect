@@ -1484,14 +1484,27 @@ select.cfrow__v{appearance:none;-webkit-appearance:none;cursor:pointer}
 
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--surface);padding:var(--sp-3) var(--sp-4);border-radius:var(--r-12);font-weight:500;font-size:var(--fs-sm);box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:var(--t-slow) var(--ease);z-index:60;display:flex;align-items:center;gap:9px}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-/* Team Chat pop-up: a pill at the bottom centre — who, which chat, what. Same
-   floating surface as menus; slides up, and sits under a toast if both show. */
-.cuepill{position:fixed;bottom:88px;left:50%;z-index:59;display:flex;align-items:center;gap:2px;
+/* Team Chat pop-up: a pill at the top centre, where the eye already is — who,
+   which chat, what. Same floating surface as menus; drops in from above, clear
+   of the toasts at the bottom. */
+.cuepill{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:50%;z-index:59;display:flex;align-items:center;gap:2px;
   max-width:min(460px,calc(100vw - 32px));padding:6px 6px 6px 6px;border-radius:var(--r-full);
   background:var(--glass);border:1px solid var(--glass-brd);box-shadow:var(--shadow-lg),inset 0 1px 0 var(--glass-hi);
-  transform:translateX(-50%) translateY(24px) scale(.98);opacity:0;pointer-events:none;
+  transform:translateX(-50%) translateY(-24px) scale(.98);opacity:0;pointer-events:none;
   transition:opacity var(--t-slow) var(--ease),transform var(--t-slow) var(--ease)}
 .cuepill.show{opacity:1;transform:translateX(-50%) translateY(0) scale(1);pointer-events:auto}
+/* Two thin brand-green outlines rippling out from the pill's edge as it lands.
+   The ring grows by moving its edges outward (inset) rather than by scaling,
+   so it keeps the same distance from the pill all the way round, however much
+   wider than tall the pill is. */
+.cuepill__ripple{position:absolute;inset:0;border-radius:inherit;pointer-events:none}
+.cuepill__ripple::before,.cuepill__ripple::after{content:"";position:absolute;inset:0;border-radius:var(--r-full);
+  border:2px solid var(--brand);opacity:0;animation:cueRipple 1.3s cubic-bezier(.2,.7,.3,1) .12s 2 both}
+.cuepill__ripple::after{animation-delay:.55s}
+@keyframes cueRipple{
+  0%{inset:0;opacity:.75}
+  100%{inset:-13px;opacity:0}
+}
 .cuepill__main{display:flex;align-items:center;gap:10px;min-width:0;padding:0 10px 0 0;border-radius:var(--r-full);text-align:left;cursor:pointer}
 .cuepill__main .av{flex:none}
 .cuepill__text{display:flex;flex-direction:column;min-width:0;line-height:1.25}
@@ -1503,7 +1516,7 @@ select.cfrow__v{appearance:none;-webkit-appearance:none;cursor:pointer}
 .cuepill__x:hover{background:var(--surface-2);color:var(--text)}
 .cuepill__x svg{width:14px;height:14px}
 .cuepill__main:hover .cuepill__text b{color:var(--brand-strong)}
-@media (prefers-reduced-motion:reduce){.cuepill{transition:opacity var(--t-base)}}
+@media (prefers-reduced-motion:reduce){.cuepill{transition:opacity var(--t-base)}.cuepill__ripple{display:none}}
 .toast .dot{width:8px;height:8px;border-radius:50%;background:var(--brand)}
 
 .center-note{display:grid;place-items:center;height:100%;color:var(--text-faint);font-size:var(--fs-sm);padding:var(--sp-5);text-align:center}
