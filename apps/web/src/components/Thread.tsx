@@ -15,6 +15,7 @@ import { AttachmentView, StagedChip, analyzeAudio, imageSize, kindOfFile, pickAu
 import { GlideMenu } from "./GlideMenu";
 import { ConversationLog } from "./ConversationLog";
 import { AlsoSendTo, DiscussionBar, ShareDialog } from "./chat/Discuss";
+import { FollowUpBar } from "./FollowUpBar";
 import { getSocket } from "../lib/socket";
 import { relativeTime, seenAt, lastActive, clockTime, initials, formatDuration, windowLeft, avatarBg, groupMessagesByDay, speakerKey } from "../lib/format";
 import { hasOtherRecipients, replyAllRecipients } from "@ding/client";
@@ -2973,6 +2974,7 @@ export function Thread({ conversationId, showPanel, onTogglePanel, onToast, onBa
           </div>
         </div>
       </header>
+      <FollowUpBar conv={conv} />
       {chatOn && onOpenDiscussion && <DiscussionBar conversationId={conv.id} active={discussion} onOpen={onOpenDiscussion} />}
 
       {menu && (

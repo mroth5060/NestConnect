@@ -249,6 +249,7 @@ model User {
   chatAudits      ChatAudit[]
   chatPresence    ChatPresence?
   chatStars       ChatStar[]
+  noteFollowUps   NoteFollowUp[]
 
   @@unique([orgId, email])
   /// One place per person per workspace.
@@ -593,12 +594,35 @@ model Conversation {
   assignmentEvents AssignmentEvent[]
   events           ConversationEvent[]
   chatShares       ChatMessage[]
+  noteFollowUps    NoteFollowUp[]
   account          Account?            @relation(fields: [accountId], references: [id], onDelete: SetNull)
 
   @@index([orgId, inboxId, status, lastActivityAt])
   @@index([orgId, assigneeUserId, status, lastActivityAt])
   @@index([channelRef])
   @@index([accountId])
+}
+
+/// Someone else's conversation in my My Inbound, because of its internal notes:
+/// a note @mentioned me, or someone wrote in notes I'm part of (I wrote one, or
+/// was mentioned in one). It goes when I write a note or reply here, when I
+/// dismiss it, or when the conversation is closed. One row per person.
+model NoteFollowUp {
+  id             String   @id @default(cuid())
+  conversationId String
+  userId         String
+  /// "mention" (a note @mentioned them) or "reply" (someone wrote in notes
+  /// they're part of) — for the tag that says why it's there.
+  reason         String
+  /// Who wrote the note that brought it in.
+  byUserId       String?
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
 }
 
 model Participant {

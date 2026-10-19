@@ -28,6 +28,7 @@
     "check:team-alerts": "tsx --tsconfig apps/api/tsconfig.json tools/check-team-alerts.ts",
     "check:outbound-inbox": "tsx --tsconfig apps/api/tsconfig.json tools/check-outbound-inbox.ts",
     "check:note-replies": "tsx --tsconfig apps/api/tsconfig.json tools/check-note-replies.ts",
+    "check:note-follow-ups": "tsx --tsconfig apps/api/tsconfig.json tools/check-note-follow-ups.ts",
     "check:template-meta": "tsx --tsconfig apps/api/tsconfig.json tools/check-template-meta.ts",
     "check:default-template": "tsx --tsconfig apps/api/tsconfig.json tools/check-default-template.ts",
     "check:custom-fields": "tsx --tsconfig apps/api/tsconfig.json tools/check-custom-fields.ts",

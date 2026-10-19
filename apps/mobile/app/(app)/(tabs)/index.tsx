@@ -17,6 +17,7 @@ import {
   useCustomFields,
   useMarkRead,
   useMarkUnread,
+  usePeople,
   usePrefetchConversation,
   useRefresh,
   useSearchConversations,
@@ -25,7 +26,7 @@ import {
   useTeams,
   useViews,
 } from "@ding/client";
-import { filterChipFields } from "@ding/schemas";
+import { filterChipFields, followUpLabel } from "@ding/schemas";
 import type { Conversation } from "@ding/schemas";
 import { Avatar } from "../../../src/components/Avatar";
 import { TAB_BAR_H } from "../../../src/components/TabBar";
@@ -37,7 +38,7 @@ import { usePushRegistration } from "../../../src/push";
 import { haptics } from "../../../src/haptics";
 import { NotificationBell } from "../../../src/components/NotificationBell";
 import { rowClocks } from "../../../src/clocks";
-import { CheckCircleIcon, ChevronRight, EyeIcon, PlusIcon, ReopenIcon, SearchIcon, SnoozeIcon } from "../../../src/icons";
+import { AtIcon, CheckCircleIcon, ChevronRight, EyeIcon, PlusIcon, ReopenIcon, SearchIcon, SnoozeIcon } from "../../../src/icons";
 import { useNow } from "../../../src/now";
 import { rowIn } from "../../../src/motion";
 import { useTheme } from "../../../src/theme";
@@ -95,6 +96,7 @@ const Row = memo(function Row({
   slaText,
   slaOver,
   snoozeText,
+  followUpText,
   onPress,
   onToggleRead,
   onToggleClosed,
@@ -114,6 +116,9 @@ const Row = memo(function Row({
   slaOver?: boolean;
   /** Time until a snoozed conversation comes back. */
   snoozeText?: string;
+  /** Why it's in my inbound when it isn't mine: "Sara mentioned you". A
+   *  string, like the clocks, so the memo holds. */
+  followUpText?: string;
   onPress: (id: string) => void;
   /** Swipe-right: read becomes unread and back. */
   onToggleRead: (conv: Conversation) => void;
@@ -205,6 +210,16 @@ const Row = memo(function Row({
         </View>
 
         <View className="flex-row items-center gap-2">
+          {/* In my inbound because of its notes, not because it's mine: say so,
+              or it reads as a chat handed to me. Before ownership, as on the web. */}
+          {followUpText ? (
+            <View className="flex-none flex-row items-center gap-1">
+              <AtIcon size={12} color={c.brandStrong} />
+              <Text style={{ color: c.brandStrong }} className="text-2xs font-semibold">
+                {followUpText}
+              </Text>
+            </View>
+          ) : null}
           {/* Ownership: a dot you can scan down the column, then the label —
               the web's `.convmeta__own`. The dot is what makes the assignee
               read as a *state* of the row rather than more description of it,
@@ -302,6 +317,11 @@ export default function Inbox() {
   const session = useSession();
   const views = useViews();
   const teams = useTeams();
+  const people = usePeople();
+  const personName = useCallback(
+    (id?: string | null) => (id ? people.data?.find((m) => m.user.id === id)?.user.name : undefined),
+    [people.data],
+  );
   const list = useConversations(view, fieldKey ? { key: fieldKey } : undefined);
   // The chips' numbers, counted by the server over the whole inbox. Counting
   // the loaded rows made every chip read low until the list was scrolled to
@@ -632,6 +652,7 @@ export default function Inbox() {
               slaText={slaText}
               slaOver={slaOver}
               snoozeText={snoozeText}
+              followUpText={item.followUp ? followUpLabel(item.followUp, personName(item.followUp.byUserId)) : undefined}
               onPress={openThread}
               onToggleRead={onToggleRead}
               onToggleClosed={onToggleClosed}

@@ -951,6 +951,21 @@ export const waWindowSchema = z.object({
 });
 export type WaWindow = z.infer<typeof waWindowSchema>;
 
+export const noteFollowUpSchema = z.object({
+  reason: z.enum(["mention", "reply"]),
+  /** Who wrote the note that brought it in. */
+  byUserId: z.string().nullable(),
+  since: z.string(),
+});
+export type NoteFollowUp = z.infer<typeof noteFollowUpSchema>;
+
+/** Why a conversation that isn't yours is in your My Inbound, in words — the
+ *  same on the web and in the app. `byName` is whoever wrote the note. */
+export function followUpLabel(f: NoteFollowUp, byName?: string | null): string {
+  const who = byName?.trim().split(/\s+/)[0] || "Someone";
+  return f.reason === "mention" ? `${who} mentioned you` : `${who} replied in the notes`;
+}
+
 export const conversationSchema = z.object({
   id: z.string(),
   orgId: z.string(),
@@ -991,6 +1006,13 @@ export const conversationSchema = z.object({
    * approved template. `expiresAt` is when an open window closes (ISO).
    */
   waWindow: waWindowSchema.nullable().default(null),
+  /**
+   * Why this is in the viewer's My Inbound when it isn't theirs: its internal
+   * notes. "mention" — a note @mentioned them; "reply" — someone wrote in notes
+   * they're part of. Gone once they write a note or reply here, dismiss it, or
+   * the conversation closes. Per viewer: absent everywhere it doesn't apply.
+   */
+  followUp: noteFollowUpSchema.optional(),
 });
 export type Conversation = z.infer<typeof conversationSchema>;
 

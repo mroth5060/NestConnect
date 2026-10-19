@@ -101,41 +101,64 @@ export class NotificationsService implements OnApplicationBootstrap, OnModuleDes
    * and without it "@Isaac can you check?" gets a reply nobody is told about.
    * Never the author, and never twice.
    */
+  /**
+   * Who a new internal note is for: every teammate it @-mentions ("mention"),
+   * and everyone already in this conversation's notes — whoever wrote one, or
+   * was @-mentioned in one ("reply"). Never the author.
+   *
+   * The same people the note notifies, and whose My Inbound it lands in (see
+   * NoteFollowUp): one answer to "who is this note for", used for both.
+   */
+  async noteAudience(
+    conversationId: string,
+    body: string,
+    authorId: string,
+    noteId?: string,
+  ): Promise<Map<string, "mention" | "reply">> {
+    const members = await this.store.listMembers();
+    const byHandle = new Map(members.map((m) => [mentionHandle(m.user), m.user.id]));
+    const mentioned = new Set([...handlesIn(body)].map((h) => byHandle.get(h)).filter((id): id is string => !!id));
+    const inNotes = await this.noteParticipants(conversationId, byHandle, noteId);
+    const out = new Map<string, "mention" | "reply">();
+    for (const m of members) {
+      const id = m.user.id;
+      if (id === authorId) continue;
+      if (mentioned.has(id)) out.set(id, "mention");
+      else if (inNotes.has(id)) out.set(id, "reply");
+    }
+    return out;
+  }
+
+  /**
+   * On an internal note: tell every teammate it @-mentions, and everyone
+   * already in this conversation's notes. That second group is how you hear
+   * that somebody answered your note: an answer rarely @-mentions back the
+   * person it answers, and without it "@Isaac can you check?" gets a reply
+   * nobody is told about. Never the author, and never twice.
+   */
   async notifyMentions(
     conversation: Conversation,
     body: string,
     authorName: string,
     authorId: string,
     noteId?: string,
+    /** Already worked out by the caller (see `noteAudience`), to skip a second pass. */
+    audience?: Map<string, "mention" | "reply">,
   ): Promise<void> {
     const members = await this.store.listMembers();
-    const byHandle = new Map(members.map((m) => [mentionHandle(m.user), m.user.id]));
-    const mentioned = new Set([...handlesIn(body)].map((h) => byHandle.get(h)).filter((id): id is string => !!id));
-    const inNotes = await this.noteParticipants(conversation.id, byHandle, noteId);
+    const who = audience ?? (await this.noteAudience(conversation.id, body, authorId, noteId));
     // Shown by name ("@Nathan A"), the way the note itself reads in the app.
     const readable = mentionsToNames(body, members.map((m) => m.user));
     const snippet = readable.length > 120 ? `${readable.slice(0, 117)}…` : readable;
     const customer = conversation.contact.displayName;
-    for (const m of members) {
-      const id = m.user.id;
-      if (id === authorId) continue;
-      if (mentioned.has(id)) {
-        await this.create(id, {
-          type: "mention",
-          title: `${authorName} mentioned you`,
-          body: snippet,
-          conversationId: conversation.id,
-          actorUserId: authorId,
-        });
-      } else if (inNotes.has(id)) {
-        await this.create(id, {
-          type: "mention",
-          title: `${authorName} replied in the notes on ${customer}`,
-          body: snippet,
-          conversationId: conversation.id,
-          actorUserId: authorId,
-        });
-      }
+    for (const [id, reason] of who) {
+      await this.create(id, {
+        type: "mention",
+        title: reason === "mention" ? `${authorName} mentioned you` : `${authorName} replied in the notes on ${customer}`,
+        body: snippet,
+        conversationId: conversation.id,
+        actorUserId: authorId,
+      });
     }
   }
 

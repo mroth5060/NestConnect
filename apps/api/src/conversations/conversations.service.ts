@@ -125,7 +125,11 @@ export class ConversationsService {
     opts?: { cursor?: string; limit?: number; field?: { key: string; value?: string }; status?: ListStatus },
   ): Promise<ConversationPage> {
     await this.assertViewAllowed(view, userId);
-    return this.store.listConversations(view, userId, opts);
+    const page = await this.store.listConversations(view, userId, opts);
+    // Mark the ones in my inbound because of their notes, so the row can say why.
+    const followUps = await this.store.noteFollowUpsFor(userId, page.items.map((c) => c.id));
+    if (!followUps.size) return page;
+    return { ...page, items: page.items.map((c) => (followUps.has(c.id) ? { ...c, followUp: followUps.get(c.id) } : c)) };
   }
 
   /** How many conversations each of the list's filter chips holds. */
@@ -159,10 +163,43 @@ export class ConversationsService {
     return this.store.listMessages(conversationId, opts);
   }
 
-  async get(id: string): Promise<ConversationWithMessages> {
+  async get(id: string, viewerId?: string): Promise<ConversationWithMessages> {
     const conv = await this.store.getConversation(id);
     if (!conv) throw new NotFoundException(`Conversation ${id} not found`);
-    return conv;
+    // Whether it's in the viewer's inbound because of its notes — what shows
+    // them the Dismiss button.
+    const followUp = viewerId ? (await this.store.noteFollowUpsFor(viewerId, [id])).get(id) : undefined;
+    return followUp ? { ...conv, followUp } : conv;
+  }
+
+  /**
+   * Take a conversation out of my My Inbound when it's only there because of
+   * its notes — "seen it, nothing for me to say". It stays in Mentions, and the
+   * conversation itself (its owner, status, notes) is untouched.
+   */
+  async dismissFollowUp(id: string, userId: string): Promise<{ ok: true }> {
+    const conv = await this.store.getConversation(id);
+    if (!conv) throw new NotFoundException(`Conversation ${id} not found`);
+    if (await this.store.clearNoteFollowUps(id, userId)) this.realtime.emitConversationUpdated(conv);
+    return { ok: true };
+  }
+
+  /**
+   * A new internal note: it lands in the inbound of everyone it's for — the
+   * teammates it @-mentions, and everyone already in these notes — and tells
+   * them. Its author's own follow-up was already answered by writing it.
+   */
+  private async followNote(conv: Conversation, body: string, author: User, noteId: string): Promise<void> {
+    const audience = await this.notifications.noteAudience(conv.id, body, author.id, noteId);
+    if (audience.size) {
+      await this.store.addNoteFollowUps(
+        conv.id,
+        [...audience].map(([userId, reason]) => ({ userId, reason, byUserId: author.id })),
+      );
+      // Their lists, counts and badges move with it.
+      this.realtime.emitConversationUpdated(conv);
+    }
+    await this.notifications.notifyMentions(conv, body, author.name, author.id, noteId, audience);
   }
 
   /**
@@ -340,6 +377,10 @@ export class ConversationsService {
     ), { byReply: true, claimed: true });
     if (!message) throw new NotFoundException(`Conversation ${id} not found`);
 
+    // Writing a note here, or replying to the customer, answers whatever was
+    // waiting on me in this conversation's notes: out of my inbound it goes.
+    await this.store.clearNoteFollowUps(id, author.id);
+
     // Broadcast immediately so every open client updates the thread + previews.
     this.realtime.emitMessageCreated(id, message, conv.orgId);
 
@@ -347,7 +388,7 @@ export class ConversationsService {
     // in this conversation's notes (fire-and-forget; a failed notification
     // never fails the note).
     if (input.internal) {
-      void this.notifications.notifyMentions(conv, body, author.name, author.id, message.id).catch(() => {});
+      void this.followNote(conv, body, author, message.id).catch(() => {});
     }
 
     // Real (non-internal) replies are enqueued for durable delivery. The message

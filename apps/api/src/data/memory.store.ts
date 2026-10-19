@@ -41,6 +41,7 @@ import type {
   UpdateTemplateInput,
   User,
   AvailabilitySchedule,
+  NoteFollowUp,
 } from "@ding/schemas";
 import {
   CONVERSATIONS_PAGE_SIZE,
@@ -1084,7 +1085,12 @@ export class MemoryStore extends Store {
     if (view === "mine") return rec.assigneeUserId === userId && inList;
     if (view === "grabs") return this.isUpForGrabs(rec, userTeams);
     if (view === "inbound")
-      return (rec.assigneeUserId === userId && inList) || this.isUpForGrabs(rec, userTeams);
+      return (
+        (rec.assigneeUserId === userId && inList) ||
+        this.isUpForGrabs(rec, userTeams) ||
+        // Someone else's conversation, here because of its notes (see PrismaStore).
+        (inList && this.followUps.has(followUpKey(rec.id, userId)))
+      );
     if (view === "snoozed") return rec.status === "snoozed";
     if (view === "mentions") {
       const token = this.mentionToken(userId);
@@ -1242,12 +1248,45 @@ export class MemoryStore extends Store {
     };
   }
 
+  /** conversationId|userId → why it's in that person's My Inbound. */
+  private readonly followUps = new Map<string, NoteFollowUp>();
+
+  async addNoteFollowUps(
+    conversationId: string,
+    entries: { userId: string; reason: NoteFollowUp["reason"]; byUserId: string | null }[],
+  ): Promise<void> {
+    for (const e of entries) {
+      this.followUps.set(followUpKey(conversationId, e.userId), { reason: e.reason, byUserId: e.byUserId, since: new Date().toISOString() });
+    }
+  }
+
+  async clearNoteFollowUps(conversationId: string, userId?: string): Promise<number> {
+    let n = 0;
+    for (const key of [...this.followUps.keys()]) {
+      const [c, u] = key.split("|");
+      if (c === conversationId && (!userId || u === userId)) {
+        this.followUps.delete(key);
+        n++;
+      }
+    }
+    return n;
+  }
+
+  async noteFollowUpsFor(userId: string, conversationIds: string[]): Promise<Map<string, NoteFollowUp>> {
+    const out = new Map<string, NoteFollowUp>();
+    for (const id of conversationIds) {
+      const f = this.followUps.get(followUpKey(id, userId));
+      if (f) out.set(id, f);
+    }
+    return out;
+  }
+
   async unreadConversationCount(userId: string): Promise<number> {
     const userTeams = this.membership[userId] ?? [];
     return this.conversations.filter(
       (r) =>
         this.matchesView(r, "inbound", userId, userTeams, true) &&
-        (r.unread || (r.unreadCount ?? 0) > 0),
+        (r.unread || (r.unreadCount ?? 0) > 0 || this.followUps.has(followUpKey(r.id, userId))),
     ).length;
   }
 
@@ -1545,6 +1584,8 @@ export class MemoryStore extends Store {
     rec.status = status;
     // Closing clears the unread flag; a status change doesn't reorder the list.
     if (status === "closed") { rec.unread = false; rec.unreadCount = 0; }
+    // …and closed is done for everyone: nothing about it waits in anyone's inbound.
+    if (status === "closed") await this.clearNoteFollowUps(conversationId);
     if (status !== "snoozed") rec.snoozedUntil = null;
     return this.summary(rec);
   }
@@ -3112,3 +3153,5 @@ export class MemoryStore extends Store {
 function byChosenOrder(a: { order?: number }, b: { order?: number }): number {
   return (a.order ?? 0) - (b.order ?? 0);
 }
+
+const followUpKey = (conversationId: string, userId: string) => `${conversationId}|${userId}`;
