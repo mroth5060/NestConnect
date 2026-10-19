@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, AppState, View } from "react-native";
 import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-query";
 import { colors } from "@ding/design/tokens";
 import { configureMobileClient, setSignOutHandler } from "../src/api-config";
 import { ErrorBoundary } from "../src/components/ErrorBoundary";
@@ -26,6 +26,15 @@ import "../src/animated";
 // still reported. Telemetry is a no-op unless a DSN was baked into the build.
 configureMobileClient();
 initTelemetry();
+
+// Coming back to the app counts as coming back to the screen: whatever on it
+// has gone stale fetches again, as a browser tab does on focus. React Query
+// only knows about a browser's focus, so on a phone nothing did — a list sat
+// as it was when the app went to the background until something else moved.
+focusManager.setEventListener((setFocused) => {
+  const sub = AppState.addEventListener("change", (s) => setFocused(s === "active"));
+  return () => sub.remove();
+});
 
 const queryClient = new QueryClient({
   defaultOptions: {

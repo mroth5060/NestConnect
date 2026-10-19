@@ -19,7 +19,7 @@ import {
 } from "@ding/schemas";
 import { api } from "./api";
 import { clientConfig } from "./config";
-import { getSocket } from "./socket";
+import { getSocket, onReconnect } from "./socket";
 
 /*
  * Team Chat on the client: the queries, sending (with the bubble showing before
@@ -496,7 +496,14 @@ export function useChatRealtime(enabled: boolean): void {
     socket.on(ChatServerEvent.Cue, onCue);
     socket.on(ServerEvent.ConversationUpdated, onConversation);
     socket.on(ServerEvent.ConversationAssigned, onConversation);
+    // Back after a drop: the list, the count and any open chat catch up on
+    // what was said meanwhile, together.
+    const offReconnect = onReconnect(() => {
+      refreshLists(qc);
+      qc.invalidateQueries({ queryKey: ["chat", "messages"] });
+    });
     return () => {
+      offReconnect();
       socket.off(ServerEvent.ConversationUpdated, onConversation);
       socket.off(ServerEvent.ConversationAssigned, onConversation);
       socket.off(ChatServerEvent.Message, onMessage);

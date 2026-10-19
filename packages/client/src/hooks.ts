@@ -57,7 +57,7 @@ import {
 } from "@ding/schemas";
 import { api, type MeResponse } from "./api";
 import { clientConfig } from "./config";
-import { getSocket, resetSocket } from "./socket";
+import { getSocket, onReconnect, resetSocket } from "./socket";
 
 /** Sound cues, if this app has any. The web plays them; native leaves the sound
  *  to the OS notification, so both are optional and default to nothing. */
@@ -1702,7 +1702,15 @@ export function useRealtime(openConversationId: string | null) {
     socket.on(ServerEvent.ConversationAssigned, onAssigned);
     socket.on(ServerEvent.ConversationUpdated, onConversation);
     socket.on(ServerEvent.Notification, onNotification);
+    // Back after a drop: catch up on what was said meanwhile.
+    const offReconnect = onReconnect(() => {
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+      qc.invalidateQueries({ queryKey: ["conversation"] });
+      qc.invalidateQueries({ queryKey: ["views"] });
+      qc.invalidateQueries({ queryKey: ["notifications"] });
+    });
     return () => {
+      offReconnect();
       socket.off(ServerEvent.MessageCreated, onCreated);
       socket.off(ServerEvent.MessageCue, onCue);
       socket.off(ServerEvent.MessageUpdated, onUpdated);
