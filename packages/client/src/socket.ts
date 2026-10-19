@@ -27,6 +27,27 @@ export function getSocket(): DingSocket {
   return socket;
 }
 
+/**
+ * Run `cb` each time the connection comes back after dropping — not on the
+ * first connect. Whatever the server sent while it was down never arrived,
+ * and a list that only moves on those events would stay as it was: on a phone
+ * that is every return from the background, which is when the badge (its own
+ * request) said 7 above a list still showing none of them. Returns the
+ * unsubscribe.
+ */
+export function onReconnect(cb: () => void): () => void {
+  const s = getSocket();
+  let connectedBefore = s.connected;
+  const onConnect = () => {
+    if (connectedBefore) cb();
+    connectedBefore = true;
+  };
+  s.on("connect", onConnect);
+  return () => {
+    s.off("connect", onConnect);
+  };
+}
+
 /** Drop the connection and forget it — on sign-out, so the next sign-in
  *  handshakes with the new session rather than reusing the old one. */
 export function resetSocket(): void {

@@ -3439,7 +3439,9 @@ export const pushPreferencesSchema = z.object({
    * team that nobody hears about just sits there.
    */
   teamChats: z.boolean().default(true),
-  /** Any new inbound in an inbox my team owns. Off by default, deliberately. */
+  /** Every message in my team's inboxes — chats colleagues have taken
+   *  included. Off by default, deliberately. (A chat nobody has taken yet is
+   *  `teamChats`, every message of it until someone does.) */
   teamInbound: z.boolean().default(false),
   /** A new message in one of my Team Chat chats. An @mention of me there
    *  follows `mentions` instead, so it still arrives with this off. */
