@@ -41,11 +41,14 @@ export class ConversationsController {
     @Query("limit") limit?: string,
     @Query("fieldKey") fieldKey?: string,
     @Query("fieldValue") fieldValue?: string,
+    @Query("status") status?: string,
   ) {
     const key = fieldKey?.trim();
     return this.conversations.list(view ?? "inbound", userId, {
       cursor,
       limit: limit ? Number(limit) : undefined,
+      // Anything else (or nothing) is both sides, as before the split.
+      ...(status === "active" || status === "closed" ? { status } : {}),
       // An empty value is not a filter for the empty string — it is the
       // querystring's way of saying the box was left blank, which means "any".
       ...(key ? { field: { key, value: fieldValue?.trim() || undefined } } : {}),

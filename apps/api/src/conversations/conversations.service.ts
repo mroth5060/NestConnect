@@ -18,7 +18,7 @@ import type {
 } from "@ding/schemas";
 import { FORWARD_MAX_TARGETS, renderEmailSignature, sendingInbox } from "@ding/schemas";
 import { ConversationLog, agent, renderConversationEvents, SYSTEM } from "./conversation-log";
-import { Store, type OutboundDeliveryMeta } from "../data/store";
+import { Store, type ListStatus, type OutboundDeliveryMeta } from "../data/store";
 import { currentOrgId } from "../tenancy/tenant-scope";
 import { isWaChannel } from "../data/mappers";
 import { RealtimeGateway } from "../realtime/realtime.gateway";
@@ -122,7 +122,7 @@ export class ConversationsService {
   async list(
     view: string,
     userId: string,
-    opts?: { cursor?: string; limit?: number; field?: { key: string; value?: string } },
+    opts?: { cursor?: string; limit?: number; field?: { key: string; value?: string }; status?: ListStatus },
   ): Promise<ConversationPage> {
     await this.assertViewAllowed(view, userId);
     return this.store.listConversations(view, userId, opts);

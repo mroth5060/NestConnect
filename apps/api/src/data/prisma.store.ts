@@ -119,6 +119,7 @@ import {
   type ConversationState,
   type ConversationEventInput,
   type ConversationEventRow,
+  type ListStatus,
 } from "./store";
 
 /**
@@ -1418,7 +1419,7 @@ export class PrismaStore extends Store {
   async listConversations(
     view: string,
     userId: string,
-    opts?: { cursor?: string; limit?: number; field?: { key: string; value?: string } },
+    opts?: { cursor?: string; limit?: number; field?: { key: string; value?: string }; status?: ListStatus },
   ): Promise<ConversationPage> {
     const userTeams = await this.teamsForUser(userId);
     const token = await this.mentionToken(userId);
@@ -1426,6 +1427,8 @@ export class PrismaStore extends Store {
     const cur = decodeConvCursor(opts?.cursor);
     const base = this.buildWhere(view, userId, userTeams, token);
     const parts: Prisma.ConversationWhereInput[] = [base];
+    if (opts?.status === "active") parts.push({ status: { not: "closed" } });
+    if (opts?.status === "closed") parts.push({ status: "closed" });
     if (opts?.field) {
       const { conversationIds, contactIds } = await this.findByCustomField(
         currentOrgId(),

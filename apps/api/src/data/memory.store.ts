@@ -87,6 +87,7 @@ import {
   type ConversationEventRow,
   type WorkspaceMembership,
   type WorkspaceSummary,
+  type ListStatus,
 } from "./store";
 
 const AVATAR_PALETTE = [
@@ -1140,9 +1141,11 @@ export class MemoryStore extends Store {
   async listConversations(
     view: string,
     userId: string,
-    opts?: { cursor?: string; limit?: number; field?: { key: string; value?: string } },
+    opts?: { cursor?: string; limit?: number; field?: { key: string; value?: string }; status?: ListStatus },
   ): Promise<ConversationPage> {
-    const sorted = (await this.viewRows(view, userId, opts?.field)).sort(byRecencyDesc);
+    const sorted = (await this.viewRows(view, userId, opts?.field))
+      .filter((c) => (opts?.status === "active" ? c.status !== "closed" : opts?.status === "closed" ? c.status === "closed" : true))
+      .sort(byRecencyDesc);
     return this.pageConversations(sorted, opts);
   }
 

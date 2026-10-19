@@ -368,6 +368,14 @@ export interface ConversationEventRow extends Required<ConversationEventInput> {
   createdAt: string;
 }
 
+/**
+ * Which side of a list view a page comes from. A view's list carries closed
+ * conversations too (for the Closed chip); paged together, newest first, a
+ * channel with many recently closed threads put its one open thread past the
+ * first page, and the list showed nothing above an "All 1" chip.
+ */
+export type ListStatus = "active" | "closed";
+
 export abstract class Store {
   /** The current demo user until real auth resolves identity per-request. */
   abstract get demoUserId(): string;
@@ -712,6 +720,9 @@ export abstract class Store {
       /** Narrow the view to threads carrying this field — any value, or one in
        *  particular. ANDed with the view, so it can only ever show you less. */
       field?: { key: string; value?: string };
+      /** Only the open side of the view ("active": anything not closed) or
+       *  only its closed side. Absent: both, mixed by recency, as before. */
+      status?: ListStatus;
     },
   ): Promise<ConversationPage>;
   /** Per-filter totals for a view (and field filter) — the list's chips. */

@@ -93,6 +93,55 @@ async function main(): Promise<void> {
     }
   }
 
+  // A channel whose one open conversation is older than its last page-full of
+  // closed ones. The list used to page both together, newest first, and hide
+  // the closed rows on screen: the first page was all closed, the list showed
+  // nothing, and its All chip said 1 above it. Each side now pages on its own.
+  console.log("\nOne open chat behind a page of closed ones\n");
+  const quiet = new MemoryStore();
+  const qUser = quiet.demoUserId;
+  const qInbox = (await quiet.listInboxes())[0]!;
+  const qView = `inbox:${qInbox.id}`;
+  const before0 = (await quiet.conversationFilterCounts(qView, qUser)).all;
+  const tick = () => new Promise((r) => setTimeout(r, 2));
+  const openOne = await quiet.findOrCreateOpenConversation({
+    orgId: ORG_ID,
+    inboxId: qInbox.id,
+    contact: (await quiet.createContact({ orgId: ORG_ID, displayName: "Still waiting", phone: "+447700800000" })).contact,
+    channel: qInbox.type,
+  });
+  for (let i = 0; i < CONVERSATIONS_PAGE_SIZE + 10; i++) {
+    await tick();
+    const { contact } = await quiet.createContact({ orgId: ORG_ID, displayName: `Done ${i}`, phone: `+4477008${String(10000 + i)}` });
+    const { conversation } = await quiet.findOrCreateOpenConversation({ orgId: ORG_ID, inboxId: qInbox.id, contact, channel: qInbox.type });
+    await quiet.setStatus(conversation.id, "closed");
+  }
+  const qCounts = await quiet.conversationFilterCounts(qView, qUser);
+  const mixedFirst = (await quiet.listConversations(qView, qUser)).items;
+  ok(
+    "the old mixed first page holds no open chat (the bug, as it was)",
+    !mixedFirst.some((c) => c.id === openOne.conversation.id),
+  );
+  const activeFirst = (await quiet.listConversations(qView, qUser, { status: "active" })).items;
+  ok(
+    "the open side's first page has it",
+    activeFirst.some((c) => c.id === openOne.conversation.id) && activeFirst.every((c) => c.status !== "closed"),
+    `${activeFirst.length} rows`,
+  );
+  ok("…and All counts exactly what that side lists", qCounts.all === activeFirst.length && qCounts.all === before0 + 1, `${qCounts.all} vs ${activeFirst.length}`);
+  const closedSide: Conversation[] = [];
+  for (let cursor: string | undefined; ; ) {
+    const page = await quiet.listConversations(qView, qUser, { status: "closed", cursor });
+    closedSide.push(...page.items);
+    if (!page.nextCursor) break;
+    cursor = page.nextCursor;
+  }
+  ok(
+    "the closed side pages through every closed chat, and nothing else",
+    closedSide.length === qCounts.closed && closedSide.every((c) => c.status === "closed"),
+    `${closedSide.length} vs ${qCounts.closed}`,
+  );
+
   // The @ Mentions badge: open work only, like every other queue. A mention in
   // a chat that has since been closed used to keep the badge at 1 for good.
   console.log("\n@ Mentions badge\n");

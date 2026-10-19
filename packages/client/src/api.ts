@@ -474,10 +474,14 @@ export const api = {
     view: string,
     cursor?: string,
     field?: { key: string; value?: string },
+    // One side of the view: its open conversations, or its closed ones.
+    // Left out, both come mixed by recency.
+    status?: "active" | "closed",
   ) =>
     get<ConversationPage>(
       `/conversations?view=${encodeURIComponent(view)}` +
         (cursor ? `&cursor=${encodeURIComponent(cursor)}` : "") +
+        (status ? `&status=${status}` : "") +
         (field?.key ? `&fieldKey=${encodeURIComponent(field.key)}` : "") +
         (field?.key && field.value ? `&fieldValue=${encodeURIComponent(field.value)}` : ""),
     ),
