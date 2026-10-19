@@ -134,10 +134,14 @@ export function ConversationList({ view, title, count, selectedId, onSelect, onO
     }
   }, [filter, showUnassigned, showMine, hasGroups]);
 
-  // A field filter belongs to the inbox it was set in. Carried across, it shows
-  // a near-empty list under a different inbox's name — which reads as an empty
-  // inbox rather than as a filter still being on.
-  useEffect(() => setFieldKey(null), [view]);
+  // A filter belongs to the inbox it was set in, the chip as much as the field.
+  // Carried across, "Unread" from My Inbound emptied a channel whose one
+  // conversation had been read: "inbox zero", beside an All chip reading 1.
+  // Each inbox opens on All.
+  useEffect(() => {
+    setFieldKey(null);
+    setFilter("all");
+  }, [view]);
 
   // …and the same if the chip itself goes away while it is on — somebody
   // turning the field off in Settings, or retiring it. Without this the list
@@ -306,7 +310,21 @@ export function ConversationList({ view, title, count, selectedId, onSelect, onO
                   ? "No closed conversations."
                   : filter === "unassigned"
                     ? "Nothing unassigned — all picked up."
-                    : "Nothing here — inbox zero."}
+                    : filter === "unread"
+                      ? "Nothing unread here."
+                      : filter === "mine"
+                        ? "None of these are yours."
+                        : "Nothing here — inbox zero."}
+            {/* A chip hiding what's here says so, rather than reading as an
+                empty inbox beside an All chip that isn't. */}
+            {!searching && filter !== "all" && filter !== "closed" && countFor("all") > 0 && (
+              <>
+                {" "}
+                <button type="button" className="empty__all" onClick={() => setFilter("all")}>
+                  Show all {countFor("all")}
+                </button>
+              </>
+            )}
           </div>
         )}
         {shown.length > 0 && (
