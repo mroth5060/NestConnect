@@ -1139,6 +1139,25 @@ export function useMarkUnread() {
   });
 }
 
+/**
+ * Dismiss a conversation that's in my My Inbound only because of its notes —
+ * "seen it, nothing for me to say". The tag and the Dismiss button come off
+ * the cached row and thread at once; the refetch takes it out of the list.
+ */
+export function useDismissFollowUp() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.dismissFollowUp(id),
+    onMutate: (id) => optimisticPatch(qc, id, { followUp: undefined }),
+    onError: (_e, id, undo) => undo && patchConversation(qc, id, undo),
+    onSettled: (_d, _e, id) => {
+      qc.invalidateQueries({ queryKey: ["views"] });
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+      qc.invalidateQueries({ queryKey: ["conversation", id] });
+    },
+  });
+}
+
 /* ---- WhatsApp message templates ---- */
 export const useTemplates = () => useQuery({ queryKey: ["templates"], queryFn: api.templates });
 
@@ -1651,9 +1670,12 @@ export function useRealtime(openConversationId: string | null) {
     };
     // Assignment/status/snooze change the lists → refresh them (infrequent).
     // A change to a conversation is also a new line in its log, if it's open.
-    const onConversation = () => {
+    const onConversation = (p?: { conversation?: Conversation }) => {
       invalidateLists();
       qc.invalidateQueries({ queryKey: ["conversation-events"] });
+      // An open thread too: whether it's in my inbound because of its notes
+      // (its Dismiss button) is per person, so only a refetch can say.
+      if (p?.conversation?.id) qc.invalidateQueries({ queryKey: ["conversation", p.conversation.id] });
     };
     const onAssigned = () => {
       invalidateLists();

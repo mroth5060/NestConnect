@@ -192,6 +192,11 @@ jobs:
       - name: Note replies
         run: pnpm check:note-replies
 
+      # A note puts someone else's conversation in the inbound of everyone it's
+      # for, until they answer, dismiss it, or it closes.
+      - name: Note follow-ups
+        run: pnpm check:note-follow-ups
+
       # Who hears about a new message. The web used to chime for every arrival
       # anywhere in the workspace, because the sound hung off a broadcast meant
       # for keeping lists current. Both ways of getting the fix wrong are silent:

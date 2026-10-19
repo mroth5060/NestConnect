@@ -75,6 +75,7 @@ import { useInsets } from "../../../src/insets";
 import { useNow } from "../../../src/now";
 import { threadClocks } from "../../../src/clocks";
 import { Touchable } from "../../../src/components/Touchable";
+import { FollowUpBar } from "../../../src/components/FollowUpBar";
 import { LinkedText } from "../../../src/components/LinkedText";
 
 /** One day of the thread. `isLastDay` rides along because `renderItem` is told
@@ -757,6 +758,7 @@ export default function Thread() {
         onDetails={() => setSheet("details")}
         onMore={() => setSheet("more")}
       />
+      <FollowUpBar conv={data} />
       {chatOn ? <DiscussionBar conversationId={data.id} onOpen={setDiscussion} /> : null}
 
       {/* A section per day, so the date pill can stick without the whole thread

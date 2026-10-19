@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useConversationCounts, useConversations, useCustomFields, useSearchConversations, useRefresh, useSession, useTeams } from "../hooks";
-import { filterChipFields } from "@ding/schemas";
+import { useConversationCounts, useConversations, useCustomFields, usePeople, useSearchConversations, useRefresh, useSession, useTeams } from "../hooks";
+import { filterChipFields, followUpLabel } from "@ding/schemas";
 import { listTime, slaCountdown, timeUntil } from "../lib/format";
 import { Avatar } from "./Avatar";
-import { channelMeta, SearchIcon, MenuIcon, CmdIcon, SnoozeIcon, RefreshIcon, ComposeIcon, PanelLeftIcon, MicIcon } from "../lib/icons";
+import { channelMeta, SearchIcon, MenuIcon, CmdIcon, SnoozeIcon, RefreshIcon, ComposeIcon, PanelLeftIcon, MicIcon, AtIcon } from "../lib/icons";
 import { NotificationBell } from "./NotificationBell";
 import { usePullToRefresh } from "../lib/usePullToRefresh";
 import { applyListWidth, getListWidth, setListWidth, resetListWidth, LIST_MIN, LIST_MAX } from "../lib/layout";
@@ -55,6 +55,8 @@ export function ConversationList({ view, title, count, selectedId, onSelect, onO
   const teams = useTeams();
   const myId = useSession().data?.user.id;
   const teamName = (id?: string | null) => (id ? teams.data?.find((t) => t.id === id)?.name : undefined);
+  const people = usePeople();
+  const personName = (id?: string | null) => (id ? people.data?.find((m) => m.user.id === id)?.user.name : undefined);
   const [q, setQ] = useState("");
   const { refresh, refreshing } = useRefresh();
   const convsRef = useRef<HTMLDivElement>(null);
@@ -449,6 +451,14 @@ export function ConversationList({ view, title, count, selectedId, onSelect, onO
                         >
                           <SnoozeIcon />
                           Back from Later
+                        </span>
+                      )}
+                      {/* In my inbound because of its notes, not because it's
+                          mine: say so, or it reads as a chat handed to me. */}
+                      {c.followUp && (
+                        <span className="convmeta__i is-note" title="In your inbound because of the internal notes — reply in the notes, or Dismiss">
+                          <AtIcon />
+                          {followUpLabel(c.followUp, personName(c.followUp.byUserId))}
                         </span>
                       )}
                       <span

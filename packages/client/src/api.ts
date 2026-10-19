@@ -758,6 +758,8 @@ export const api = {
   // Mark a conversation read: clears its unread badge + sends a WhatsApp read receipt.
   markRead: (id: string) => post<Conversation>(`/conversations/${id}/read`, {}),
   markUnread: (id: string) => post<Conversation>(`/conversations/${id}/unread`, {}),
+  // Take a conversation out of my My Inbound when only its notes put it there.
+  dismissFollowUp: (id: string) => post<{ ok: true }>(`/conversations/${id}/dismiss`, {}),
   // Agent is typing → show the customer a WhatsApp "typing…" indicator.
   sendTyping: (id: string) => post<{ ok: boolean }>(`/conversations/${id}/typing`, {}),
   // groups (invite-only: members join via the link; no add-by-phone endpoint)

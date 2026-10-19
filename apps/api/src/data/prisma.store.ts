@@ -42,6 +42,7 @@ import type {
   User,
   AvailabilitySchedule,
   MessageType,
+  NoteFollowUp,
 } from "@ding/schemas";
 import {
   CONVERSATIONS_PAGE_SIZE,
@@ -1385,9 +1386,13 @@ export class PrismaStore extends Store {
         { assignedTeamId: null, inbox: { teams: { some: { teamId: { in: userTeams } } } } },
       ],
     };
+    // Someone else's conversation, in my inbound because of its notes (a note
+    // mentioned me, or someone wrote in notes I'm part of) until I answer,
+    // dismiss it, or it closes — closing deletes the row.
+    const followUps: Prisma.ConversationWhereInput = { ...org, ...activeOnly, noteFollowUps: { some: { userId } } };
     if (view === "mine") return mine;
     if (view === "grabs") return grabs;
-    if (view === "inbound") return { OR: [mine, grabs] };
+    if (view === "inbound") return { OR: [mine, grabs, followUps] };
     if (view === "snoozed") return { ...org, status: "snoozed" };
     if (view === "mentions") {
       // Like every other queue: the badge counts open work only, so a mention
@@ -1561,6 +1566,36 @@ export class PrismaStore extends Store {
     };
   }
 
+  async addNoteFollowUps(
+    conversationId: string,
+    entries: { userId: string; reason: NoteFollowUp["reason"]; byUserId: string | null }[],
+  ): Promise<void> {
+    for (const e of entries) {
+      const data = { reason: e.reason, byUserId: e.byUserId, createdAt: new Date() };
+      await this.prisma.noteFollowUp.upsert({
+        where: { conversationId_userId: { conversationId, userId: e.userId } },
+        create: { conversationId, userId: e.userId, ...data },
+        update: data,
+      });
+    }
+  }
+
+  async clearNoteFollowUps(conversationId: string, userId?: string): Promise<number> {
+    const res = await this.prisma.noteFollowUp.deleteMany({ where: { conversationId, ...(userId ? { userId } : {}) } });
+    return res.count;
+  }
+
+  async noteFollowUpsFor(userId: string, conversationIds: string[]): Promise<Map<string, NoteFollowUp>> {
+    if (!conversationIds.length) return new Map();
+    const rows = await this.prisma.noteFollowUp.findMany({ where: { userId, conversationId: { in: conversationIds } } });
+    return new Map(
+      rows.map((r) => [
+        r.conversationId,
+        { reason: r.reason === "mention" ? "mention" : "reply", byUserId: r.byUserId, since: r.createdAt.toISOString() },
+      ]),
+    );
+  }
+
   async unreadConversationCount(userId: string): Promise<number> {
     const userTeams = await this.teamsForUser(userId);
     const token = await this.mentionToken(userId);
@@ -1572,8 +1607,9 @@ export class PrismaStore extends Store {
         AND: [
           this.buildWhere("inbound", userId, userTeams, token, true),
           // Two shapes count as unread: a real backlog of new messages, and an
-          // agent's manual "mark unread", which carries no count.
-          { OR: [{ unread: true }, { unreadCount: { gt: 0 } }] },
+          // agent's manual "mark unread", which carries no count. A note
+          // follow-up is waiting on me by definition, so it counts too.
+          { OR: [{ unread: true }, { unreadCount: { gt: 0 } }, { noteFollowUps: { some: { userId } } }] },
         ],
       },
     });
@@ -1914,6 +1950,8 @@ export class PrismaStore extends Store {
 
   async setStatus(conversationId: string, status: ConversationStatus): Promise<Conversation | undefined> {
     try {
+      // Closed is done for everyone: nothing about it waits in anyone's inbound.
+      if (status === "closed") await this.prisma.noteFollowUp.deleteMany({ where: { conversationId } });
       const row = await this.prisma.conversation.update({
         where: { id: conversationId },
         data: {

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Param, Post, Query } from "@nestjs/common";
 import {
   assignConversationInputSchema,
   forwardMessageInputSchema,
@@ -101,8 +101,15 @@ export class ConversationsController {
   }
 
   @Get(":id")
-  get(@Param("id") id: string) {
-    return this.conversations.get(id);
+  get(@Param("id") id: string, @CurrentUserId() userId: string) {
+    return this.conversations.get(id, userId);
+  }
+
+  /** Take it out of my My Inbound when only its notes put it there. */
+  @Post(":id/dismiss")
+  @HttpCode(200)
+  dismiss(@Param("id") id: string, @CurrentUserId() userId: string) {
+    return this.conversations.dismissFollowUp(id, userId);
   }
 
   /** The conversation's log — routing, assignment, status and changes. */

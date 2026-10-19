@@ -38,6 +38,7 @@ import type {
   UpdateTemplateInput,
   User,
   AvailabilitySchedule,
+  NoteFollowUp,
 } from "@ding/schemas";
 
 export interface ViewItem {
@@ -710,6 +711,23 @@ export abstract class Store {
    * inbox would otherwise wear the workspace's entire backlog on their phone.
    */
   abstract unreadConversationCount(userId: string): Promise<number>;
+
+  /* ---- note follow-ups: someone else's conversation in my My Inbound ---- */
+
+  /**
+   * Bring a conversation into these people's My Inbound because of its notes
+   * (see NoteFollowUp). One row per person: a later note replaces the reason,
+   * who wrote it and when.
+   */
+  abstract addNoteFollowUps(
+    conversationId: string,
+    entries: { userId: string; reason: NoteFollowUp["reason"]; byUserId: string | null }[],
+  ): Promise<void>;
+  /** Take it out again — for one person (they answered, or dismissed it), or
+   *  for everyone (the conversation closed). Returns how many went. */
+  abstract clearNoteFollowUps(conversationId: string, userId?: string): Promise<number>;
+  /** This person's follow-ups on these conversations, by conversation id. */
+  abstract noteFollowUpsFor(userId: string, conversationIds: string[]): Promise<Map<string, NoteFollowUp>>;
   /** A cursor page of conversations for a view (most-recent first). */
   abstract listConversations(
     view: string,
