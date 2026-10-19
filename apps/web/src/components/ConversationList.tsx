@@ -42,12 +42,19 @@ export function ConversationList({ view, title, count, selectedId, onSelect, onO
    * back should return you to the inbox, not to the filter you had on.
    */
   const [fieldKey, setFieldKey] = useState<string | null>(null);
-  const listQuery = useConversations(view, fieldKey ? { key: fieldKey } : undefined);
+  const [filter, setFilter] = useState<Filter>("all");
+  // The Closed chip pages through the view's closed side, every other chip its
+  // open side. Paged together, a channel whose recent threads were all closed
+  // held its one open thread past the first page, and the list showed nothing.
+  const listQuery = useConversations(
+    view,
+    fieldKey ? { key: fieldKey } : undefined,
+    filter === "closed" ? "closed" : "active",
+  );
   const { data, isLoading } = listQuery;
   const teams = useTeams();
   const myId = useSession().data?.user.id;
   const teamName = (id?: string | null) => (id ? teams.data?.find((t) => t.id === id)?.name : undefined);
-  const [filter, setFilter] = useState<Filter>("all");
   const [q, setQ] = useState("");
   const { refresh, refreshing } = useRefresh();
   const convsRef = useRef<HTMLDivElement>(null);
@@ -134,10 +141,14 @@ export function ConversationList({ view, title, count, selectedId, onSelect, onO
     }
   }, [filter, showUnassigned, showMine, hasGroups]);
 
-  // A field filter belongs to the inbox it was set in. Carried across, it shows
-  // a near-empty list under a different inbox's name — which reads as an empty
-  // inbox rather than as a filter still being on.
-  useEffect(() => setFieldKey(null), [view]);
+  // A filter belongs to the inbox it was set in, the chip as much as the field.
+  // Carried across, "Unread" from My Inbound emptied a channel whose one
+  // conversation had been read: "inbox zero", beside an All chip reading 1.
+  // Each inbox opens on All.
+  useEffect(() => {
+    setFieldKey(null);
+    setFilter("all");
+  }, [view]);
 
   // …and the same if the chip itself goes away while it is on — somebody
   // turning the field off in Settings, or retiring it. Without this the list
@@ -159,12 +170,17 @@ export function ConversationList({ view, title, count, selectedId, onSelect, onO
   // The active paginator (search vs the view list) — fetch the next page as the
   // last rows come into view, so we never load the whole inbox up front.
   const pager = searching ? search : listQuery;
+  // Also while a chip has fewer rows on screen than it counts (Unread, Yours…
+  // still filter the loaded pages): with nothing on screen there is no last
+  // row to scroll to, so the next page would never be asked for.
+  const want = searching ? 0 : Math.min(countFor(filter), 20);
   useEffect(() => {
     const last = virtualRows[virtualRows.length - 1];
-    if (last && last.index >= shown.length - 6 && pager.hasNextPage && !pager.isFetchingNextPage) {
+    const nearEnd = !!last && last.index >= shown.length - 6;
+    if ((nearEnd || shown.length < want) && pager.hasNextPage && !pager.isFetchingNextPage) {
       void pager.fetchNextPage();
     }
-  }, [virtualRows, shown.length, pager.hasNextPage, pager.isFetchingNextPage, pager.fetchNextPage]);
+  }, [virtualRows, shown.length, want, pager.hasNextPage, pager.isFetchingNextPage, pager.fetchNextPage]);
 
   // Drag the right edge to widen/narrow the list. The width lives in a CSS var
   // written straight to the DOM per frame — no React re-render while dragging —
@@ -306,7 +322,21 @@ export function ConversationList({ view, title, count, selectedId, onSelect, onO
                   ? "No closed conversations."
                   : filter === "unassigned"
                     ? "Nothing unassigned — all picked up."
-                    : "Nothing here — inbox zero."}
+                    : filter === "unread"
+                      ? "Nothing unread here."
+                      : filter === "mine"
+                        ? "None of these are yours."
+                        : "Nothing here — inbox zero."}
+            {/* A chip hiding what's here says so, rather than reading as an
+                empty inbox beside an All chip that isn't. */}
+            {!searching && filter !== "all" && filter !== "closed" && countFor("all") > 0 && (
+              <>
+                {" "}
+                <button type="button" className="empty__all" onClick={() => setFilter("all")}>
+                  Show all {countFor("all")}
+                </button>
+              </>
+            )}
           </div>
         )}
         {shown.length > 0 && (

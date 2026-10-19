@@ -769,13 +769,21 @@ export function useDeleteContact() {
 
 /** Cursor-paginated conversation list. `data` is the flattened rows so far;
  *  call fetchNextPage() to load the next page (never the whole inbox at once). */
-export const useConversations = (view: string, field?: { key: string; value?: string }) =>
+export const useConversations = (
+  view: string,
+  field?: { key: string; value?: string },
+  /** Page through only the open side of the view, or only the closed side. A
+   *  list that pages both together and hides one of them on screen can show
+   *  nothing at all: thirty recently closed threads fill the first page, and
+   *  the open one behind them never loads. */
+  status?: "active" | "closed",
+) =>
   useInfiniteQuery({
     // The filter is part of the key: two filters over one view are two lists,
     // and sharing a cache entry would show the first one's rows under the
     // second one's chip until the refetch landed.
-    queryKey: ["conversations", view, field?.key ?? "", field?.value ?? ""],
-    queryFn: ({ pageParam }) => api.conversations(view, pageParam, field),
+    queryKey: ["conversations", view, field?.key ?? "", field?.value ?? "", status ?? ""],
+    queryFn: ({ pageParam }) => api.conversations(view, pageParam, field, status),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     select: (d) => d.pages.flatMap((p) => p.items),
