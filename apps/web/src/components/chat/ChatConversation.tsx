@@ -530,7 +530,14 @@ function Bubble({
     const el = pop.current;
     const box = root.current?.closest(".tc-msgs")?.getBoundingClientRect();
     if (!menu || !el || !box) return;
+    // Measured at its full size. It opens growing from a corner, and a rect
+    // taken in that first frame is the shrunken one: a picker by a short
+    // incoming message looked as if it fitted, and then grew out past the
+    // list's edge, under the chats beside it. Pausing the animation for the
+    // measurement restarts it from the start, which is where it was anyway.
+    el.style.animation = "none";
     const r = el.getBoundingClientRect();
+    el.style.animation = "";
     if ((menu === "more" || menu === "who") && r.bottom > box.bottom - 6 && r.top - r.height - 30 > box.top) el.classList.add("up");
     if (menu === "react" && r.top < box.top + 6) el.classList.add("down");
     const x = r.left < box.left + 6 ? box.left + 6 - r.left : r.right > box.right - 6 ? box.right - 6 - r.right : 0;

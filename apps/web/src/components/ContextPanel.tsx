@@ -332,10 +332,14 @@ function ChannelsBlock({
   onSwitch: (channel: "whatsapp" | "email" | "sms") => Promise<void>;
 }) {
   const [pending, setPending] = useState<string | null>(null);
-  // SMS only where the workspace has an SMS channel to send from.
-  const hasSms = (useInboxes().data ?? []).some((i) => i.type === "sms");
+  // A phone number reaches WhatsApp and SMS alike, each only where the
+  // workspace has a channel of that kind to send from. A number is not a
+  // WhatsApp account, so having one doesn't put WhatsApp on the list by itself.
+  const inboxes = useInboxes().data ?? [];
+  const hasWhatsApp = inboxes.some((i) => i.type === "whatsapp");
+  const hasSms = inboxes.some((i) => i.type === "sms");
   const rows: { type: "whatsapp" | "email" | "sms"; value: string }[] = [];
-  if (contact.phone) rows.push({ type: "whatsapp", value: contact.phone });
+  if (contact.phone && hasWhatsApp) rows.push({ type: "whatsapp", value: contact.phone });
   if (contact.phone && hasSms) rows.push({ type: "sms", value: contact.phone });
   if (contact.email) rows.push({ type: "email", value: contact.email });
 

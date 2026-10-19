@@ -419,6 +419,8 @@ export const api = {
   createUser: (input: CreateUserInput) => post<CreateUserResult>("/settings/people", input),
   updateUser: (id: string, input: UpdateUserInput) => patch<User>(`/settings/people/${id}`, input),
   deleteUser: (id: string) => del<{ ok: boolean }>(`/settings/people/${id}`),
+  /** A fresh invite for someone who hasn't joined yet. */
+  resendUserInvite: (id: string) => post<CreateUserResult>(`/settings/people/${id}/invite`, {}),
   // SMS channels: the provider config (any REST API), testing it, and AI
   // filling it in from pasted docs.
   smsSettings: (inboxId: string) => get<SmsChannelSettings>(`/channels/sms/${inboxId}/settings`),

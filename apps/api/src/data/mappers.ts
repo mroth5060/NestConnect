@@ -394,6 +394,10 @@ export function mapContact(c: ContactWithIdentities): Contact {
     // read is superseded by Organisations and no longer shown.
     company: c.accountLinks?.[0]?.account.name ?? undefined,
     phone,
+    // A WhatsApp id is only ever written from WhatsApp itself — a message they
+    // sent, or a chat history Meta handed over — so it's proof, where a phone
+    // number is not.
+    onWhatsApp: c.identities.some((x) => x.kind === "wa_id"),
     email,
     visitorId,
     avatarColor: c.avatarColor ?? undefined,

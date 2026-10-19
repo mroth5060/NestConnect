@@ -40,6 +40,8 @@ interface OAuthMessage {
   email?: string;
   /** An existing channel signed in again, rather than a new one added. */
   reconnected?: boolean;
+  /** The channel this connected, so the page opens its settings by id. */
+  inboxId?: string;
   error?: string;
 }
 
@@ -208,7 +210,7 @@ export class GoogleController {
         await this.gmailSync.armWatch(inbox, accessToken);
       }
 
-      this.sendResult(res, { source: "ding-oauth", ok: true, provider: "gmail", email, reconnected: !!existing });
+      this.sendResult(res, { source: "ding-oauth", ok: true, provider: "gmail", email, reconnected: !!existing, inboxId: inbox.id });
     } catch (err) {
       this.sendResult(res, {
         source: "ding-oauth",

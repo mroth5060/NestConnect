@@ -417,6 +417,22 @@ export class WorkspaceController {
     return { user, invite: { url, emailed: sent } };
   }
 
+  /** A fresh invite link for someone who hasn't joined yet — the last one
+   *  expired, or went to spam. The old link stops working. */
+  @Post("settings/people/:id/invite")
+  async resendInvite(@CurrentUserId() userId: string, @Param("id") id: string) {
+    await this.requireManager(userId);
+    await this.sandbox.assertLive("Inviting people");
+    const person = (await this.store.listMembers()).find((m) => m.user.id === id);
+    if (!person) throw new NotFoundException("Member not found");
+    const token = await this.store.reissueInvite(id);
+    if (!token) throw new BadRequestException("They've already joined — they can sign in, or reset their password from the sign-in page.");
+    const workspace = (await this.store.listMemberships(userId)).find((m) => m.user.id === userId)?.orgName;
+    const url = `${env.appUrl}/?invite=${token}`;
+    const { sent } = await this.mailer.sendInvite(person.user.email, person.user.name, url, workspace).catch(() => ({ sent: false }));
+    return { user: person.user, invite: { url, emailed: sent } };
+  }
+
   @Patch("settings/people/:id")
   async updateUser(
     @CurrentUserId() userId: string,

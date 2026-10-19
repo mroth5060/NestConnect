@@ -83,6 +83,8 @@ export const SettingsIcon = glyph(icons.settings);
 /** Half-filled circle — the light/dark control in Settings. */
 export const ContrastIcon = glyph(icons.contrast);
 export const SearchIcon = glyph(icons.search);
+/** A phone number on file — not a channel, so drawn in the text colour. */
+export const PhoneIcon = glyph(icons.phone);
 export const MoreIcon = glyph(icons.more);
 
 /* ── arrows and chevrons ─────────────────────────────────────────────────── */

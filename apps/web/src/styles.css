@@ -1123,6 +1123,7 @@ input,textarea{font:inherit}
 .compose__rowchans{flex:0 0 auto;display:flex;align-items:center;gap:7px}
 .compose__chico{width:20px;height:20px;display:grid;place-items:center}
 .compose__chico svg{width:15px;height:15px;display:block}
+.compose__chico--phone{color:var(--text-muted)}
 .compose__back{display:inline-flex;align-items:center;gap:6px;color:var(--text-muted);font-size:var(--fs-xs);font-weight:500;margin-bottom:12px;transition:color var(--t-fast)}
 .compose__back:hover{color:var(--text)}
 .compose__back svg{width:14px;height:14px}
@@ -1845,6 +1846,9 @@ select.cfrow__v{appearance:none;-webkit-appearance:none;cursor:pointer}
 .dpill svg{width:12px;height:12px}
 .dpill--on{background:var(--brand-tint);color:var(--brand-strong)}
 .dpill--off{background:var(--surface-2);color:var(--text-faint)}
+.dpill--wait{background:color-mix(in srgb,var(--amber) 14%,var(--surface));color:color-mix(in srgb,var(--amber) 70%,var(--text))}
+.invitenote{display:flex;align-items:center;flex-wrap:wrap;gap:var(--sp-2);font-size:var(--fs-sm);color:var(--text-muted)}
+.invitenote .btn-ghost{margin-left:auto}
 .dtable__empty{padding:var(--sp-6) var(--sp-4);text-align:center;color:var(--text-faint);font-size:var(--fs-sm)}
 
 /* per-table column templates */
@@ -1899,8 +1903,8 @@ select.cfrow__v{appearance:none;-webkit-appearance:none;cursor:pointer}
 .custblock span{display:flex;flex-direction:column;gap:2px}
 .custblock b{font-size:var(--fs-sm);font-weight:600}
 .custblock small{font-size:var(--fs-xs);color:var(--text-muted)}
-.dtable--ppl{--dtable-min:660px}
-.dtable--ppl .dtable__head,.dtable--ppl .dtable__row{grid-template-columns:minmax(180px,2fr) minmax(150px,1.7fr) 110px minmax(120px,1.4fr) 28px}
+.dtable--ppl{--dtable-min:780px}
+.dtable--ppl .dtable__head,.dtable--ppl .dtable__row{grid-template-columns:minmax(180px,2fr) minmax(150px,1.7fr) 110px minmax(120px,1.4fr) 120px 28px}
 .dtable--tpl{--dtable-min:720px}
 .dtable--tpl .dtable__head,.dtable--tpl .dtable__row{grid-template-columns:minmax(150px,1.4fr) 110px 70px 120px minmax(160px,1.8fr) 74px}
 .dtable--cf{--dtable-min:760px}

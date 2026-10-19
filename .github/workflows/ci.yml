@@ -59,6 +59,7 @@ jobs:
           pnpm check:business-ops-pg
           pnpm check:team-chat-pg
           pnpm check:coexistence-pg
+          pnpm check:on-whatsapp-pg
 
       - name: Tenant isolation (HTTP, Postgres)
         env:
@@ -196,6 +197,10 @@ jobs:
       # for, until they answer, dismiss it, or it closes.
       - name: Note follow-ups
         run: pnpm check:note-follow-ups
+      - name: Member invites
+        run: pnpm check:member-invites
+      - name: A phone isn't WhatsApp
+        run: pnpm check:on-whatsapp
 
       # Who hears about a new message. The web used to chime for every arrival
       # anywhere in the workspace, because the sound hung off a broadcast meant

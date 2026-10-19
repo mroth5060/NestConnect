@@ -710,8 +710,15 @@ export function Customers({ onClose, onToast, onOpenConversation, focusContactId
                       {!c.phone && !c.email ? <span className="dcell--muted">—</span> : null}
                     </span>
                     <span className="dcell dchips">
+                      {/* A number is a phone; WhatsApp only for someone who's
+                          written to us there (see Contact.onWhatsApp). */}
                       {c.phone && (
-                        <span title="WhatsApp" style={{ color: channelMeta("whatsapp").color, display: "inline-flex" }}>
+                        <span title="Phone" style={{ color: "var(--text-muted)", display: "inline-flex" }}>
+                          <PhoneIcon />
+                        </span>
+                      )}
+                      {c.onWhatsApp && (
+                        <span title="On WhatsApp" style={{ color: channelMeta("whatsapp").color, display: "inline-flex" }}>
                           {(() => { const G = channelMeta("whatsapp").Glyph; return <G />; })()}
                         </span>
                       )}
