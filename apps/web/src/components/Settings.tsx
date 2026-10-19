@@ -113,6 +113,7 @@ import {
   useSetWhatsappProfilePhoto,
   useWhatsappOba,
   useRequestWhatsappOba,
+  useResendUserInvite,
   useSendBroadcast,
   useEmailCutoverPreview,
   useEmailCutoverStatus,
@@ -444,21 +445,20 @@ function ChannelsPane({ onToast }: { onToast: (msg: string) => void }) {
   const reorder = useReorderInboxes();
   const [connecting, setConnecting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  // After a one-click (OAuth) connect the new inbox is unrouted — open its editor
-  // as soon as it appears so the admin chooses where it routes.
-  const [routeHandle, setRouteHandle] = useState<string | null>(null);
+  // A channel just connected, however it was added: once it is in the list,
+  // the connect dialog gives way to its settings. It used to wait for a
+  // matching handle, and a WhatsApp number's handle is Meta's id for it rather
+  // than the number the pop-up reported — so the dialog stayed on "Connect a
+  // channel" until the page was refreshed.
+  const [justAdded, setJustAdded] = useState<string | null>(null);
   const teamName = (id: string) => teams.data?.find((t) => t.id === id)?.name ?? id;
 
   useEffect(() => {
-    if (!routeHandle) return;
-    const match = inboxes.data?.find((i) => i.handle.toLowerCase() === routeHandle.toLowerCase());
-    if (match) {
-      setConnecting(false);
-      setEditingId(match.id);
-      setRouteHandle(null);
-      onToast("Connected — choose where this inbox routes");
-    }
-  }, [routeHandle, inboxes.data, onToast]);
+    if (!justAdded || !inboxes.data?.some((i) => i.id === justAdded)) return;
+    setConnecting(false);
+    setEditingId(justAdded);
+    setJustAdded(null);
+  }, [justAdded, inboxes.data]);
 
   const remove = (id: string, name: string) => {
     if (!window.confirm(`Delete “${name}”? This removes the channel and its conversations.`)) return;
@@ -571,7 +571,7 @@ function ChannelsPane({ onToast }: { onToast: (msg: string) => void }) {
       {connecting && (
         <ConnectChannel
           onDone={() => setConnecting(false)}
-          onConnected={(handle) => setRouteHandle(handle)}
+          onConnected={setJustAdded}
           onToast={onToast}
         />
       )}
@@ -925,10 +925,12 @@ function ConnectChannel({
   onToast,
 }: {
   onDone: () => void;
-  onConnected: (handle: string) => void;
+  /** The new channel's id; its settings open in place of this dialog. */
+  onConnected: (inboxId: string) => void;
   onToast: (msg: string) => void;
 }) {
   const teams = useTeams();
+  const inboxes = useInboxes();
   const create = useCreateInbox();
   const registerNumber = useRegisterWhatsappNumber();
   const qc = useQueryClient();
@@ -954,13 +956,36 @@ function ConnectChannel({
   const toggleTeam = (id: string) =>
     setTeamIds((t) => (t.includes(id) ? t.filter((x) => x !== id) : [...t, id]));
 
+  // The channels there were when a sign-in pop-up opened. The pop-up says when
+  // it's done, but a provider's sign-in page can cut it off from this window,
+  // and then nothing arrives. So coming back to this window looks again, and
+  // a channel that wasn't there before is the one just connected.
+  const awaiting = useRef<Set<string> | null>(null);
+
   // Gmail & WhatsApp skip the manual credential form entirely: they run the
   // provider's consent flow in a popup, which lands on our callback and creates
   // the inbox itself.
   const connectOAuth = (path: string, label: string) => {
     const popup = window.open(path, "channel-oauth", "width=560,height=720,menubar=no,toolbar=no");
-    if (!popup) onToast(`Allow pop-ups for this site to connect ${label}`);
+    if (!popup) return onToast(`Allow pop-ups for this site to connect ${label}`);
+    awaiting.current = new Set((inboxes.data ?? []).map((i) => i.id));
   };
+
+  useEffect(() => {
+    const seen = awaiting.current;
+    const added = seen && inboxes.data?.find((i) => !seen.has(i.id));
+    if (!added) return;
+    awaiting.current = null;
+    onToast("Connected — choose where it routes");
+    onConnected(added.id);
+  }, [inboxes.data, onConnected, onToast]);
+  useEffect(() => {
+    const look = () => {
+      if (awaiting.current) void qc.invalidateQueries({ queryKey: ["inboxes"] });
+    };
+    window.addEventListener("focus", look);
+    return () => window.removeEventListener("focus", look);
+  }, [qc]);
   const connectGmail = () => connectOAuth("/api/channels/google/oauth/start", "Gmail");
   // An inbox on the platform's own mail service is the platform's alone; every
   // other workspace connects its email through Gmail.
@@ -999,7 +1024,7 @@ function ConnectChannel({
     } else if (res.sync.startsWith("failed")) {
       onToast(`${res.displayNumber} connected — but asking Meta for its history failed. See the channel.`);
     }
-    onConnected(res.handle);
+    onConnected(res.inboxId);
   };
   const connectBusinessApp = () => {
     if (!coexSetup) return onToast("Still loading — try again in a moment");
@@ -1032,22 +1057,18 @@ function ConnectChannel({
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       const data = e.data as
-        | { source?: string; ok?: boolean; provider?: string; email?: string; number?: string; error?: string }
+        | { source?: string; ok?: boolean; provider?: string; email?: string; number?: string; inboxId?: string; error?: string }
         | null;
       if (!data || data.source !== "ding-oauth") return; // ignore unrelated messages
+      awaiting.current = null;
       if (data.ok) {
         qc.invalidateQueries({ queryKey: ["inboxes"] });
         qc.invalidateQueries({ queryKey: ["views"] });
-        const handle = data.email ?? data.number ?? "";
-        // Hand the new inbox's handle up so its routing editor opens; if we can't
-        // identify it, just close the connect flow with a confirmation.
-        if (handle) {
-          onConnected(handle);
-        } else {
-          const who = data.provider === "whatsapp" ? "WhatsApp" : "Gmail";
-          onToast(`${who} connected`);
-          onDone();
-        }
+        const who = data.provider === "whatsapp" ? data.number || "WhatsApp" : data.email || "Gmail";
+        onToast(`${who} connected — choose where it routes`);
+        // Its settings open next, so the admin routes it straight away.
+        if (data.inboxId) onConnected(data.inboxId);
+        else onDone();
       } else {
         onToast(data.error || "Couldn't connect the channel");
       }
@@ -1104,18 +1125,18 @@ function ConnectChannel({
                       ? `${kind.label} connected and registered with Meta`
                       : `${kind.label} connected, but registration failed: ${r.state.detail}`,
                   );
-                  onDone();
+                  onConnected(inbox.id);
                 },
                 onError: () => {
                   onToast(`${kind.label} connected, but the number couldn't be registered`);
-                  onDone();
+                  onConnected(inbox.id);
                 },
               },
             );
             return;
           }
           onToast(`${kind.label} connected`);
-          onDone();
+          onConnected(inbox.id);
         },
         onError: () => onToast("Only admins/managers can add channels"),
       },
@@ -2428,6 +2449,7 @@ function PeoplePane({ onToast }: { onToast: (msg: string) => void }) {
   const create = useCreateUser();
   const update = useUpdateUser();
   const del = useDeleteUser();
+  const resend = useResendUserInvite();
 
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -2502,6 +2524,19 @@ function PeoplePane({ onToast }: { onToast: (msg: string) => void }) {
       },
     );
   };
+  const resendInvite = (id: string, who: string) => {
+    resend.mutate(id, {
+      onSuccess: (result) => {
+        if (result.invite) {
+          setInvite({ name: who, url: result.invite.url, emailed: result.invite.emailed });
+          setCopied(false);
+        }
+        setEditId(null);
+        onToast(result.invite?.emailed ? `Invite re-sent to ${who}` : `New invite link for ${who} below`);
+      },
+      onError: (err) => onToast(err instanceof Error && err.message ? err.message : "Couldn't re-send the invite"),
+    });
+  };
   const remove = (id: string, who: string) => {
     if (!window.confirm(`Remove ${who}? They'll lose access and be unassigned.`)) return;
     del.mutate(id, {
@@ -2554,6 +2589,7 @@ function PeoplePane({ onToast }: { onToast: (msg: string) => void }) {
             <span>Email</span>
             <span>Role</span>
             <span>Teams</span>
+            <span>Status</span>
             <span />
           </div>
           {people.data?.map((m) => {
@@ -2579,6 +2615,13 @@ function PeoplePane({ onToast }: { onToast: (msg: string) => void }) {
                 <span className="dcell dcell--muted">{m.user.email}</span>
                 <span className="dcell"><span className="dpill dpill--off" style={{ textTransform: "capitalize" }}>{m.user.role}</span></span>
                 <span className="dcell dcell--muted" title={m.teamIds.map(teamName).join(", ")}>{summariseTeams(m.teamIds.map(teamName)) || "No team"}</span>
+                <span className="dcell">
+                  {m.pending ? (
+                    <span className="dpill dpill--wait" title="Invited — they haven't set their password yet">Invite pending</span>
+                  ) : (
+                    <span className="dpill dpill--on">Active</span>
+                  )}
+                </span>
                 <span className="dcell dcell--end"><span className="dchev"><EditIcon /></span></span>
               </div>
             );
@@ -2661,6 +2704,15 @@ function PeoplePane({ onToast }: { onToast: (msg: string) => void }) {
                 <input value={ePosition} maxLength={80} onChange={(e) => setEPosition(e.target.value)} placeholder="e.g. Operations Manager" />
                 <small className="fieldhint">Shown in the signature of every email channel they send from.</small>
               </label>
+              {editMember.pending && (
+                <div className="invitenote">
+                  <span className="dpill dpill--wait">Invite pending</span>
+                  <span>They haven’t set their password yet.</span>
+                  <button className="btn-ghost" type="button" disabled={resend.isPending} onClick={() => resendInvite(editMember.user.id, editMember.user.name)}>
+                    Re-send invite
+                  </button>
+                </div>
+              )}
               <div className="field">
                 <span>Teams</span>
                 <div className="checks">

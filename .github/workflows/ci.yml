@@ -196,6 +196,8 @@ jobs:
       # for, until they answer, dismiss it, or it closes.
       - name: Note follow-ups
         run: pnpm check:note-follow-ups
+      - name: Member invites
+        run: pnpm check:member-invites
 
       # Who hears about a new message. The web used to chime for every arrival
       # anywhere in the workspace, because the sound hung off a broadcast meant

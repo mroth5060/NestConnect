@@ -3207,6 +3207,9 @@ export type ContactWithConversations = z.infer<typeof contactWithConversationsSc
 export const memberSchema = z.object({
   user: userSchema,
   teamIds: z.array(z.string()),
+  /** Invited, and hasn't joined yet: no password set. People shows them as
+   *  "Invite pending" until they do, then "Active". */
+  pending: z.boolean().optional(),
 });
 export type Member = z.infer<typeof memberSchema>;
 

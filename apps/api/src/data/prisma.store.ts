@@ -770,10 +770,17 @@ export class PrismaStore extends Store {
   async listMembers(): Promise<Member[]> {
     const rows = await this.prisma.user.findMany({
       where: { orgId: currentOrgId() },
-      include: { memberships: true },
+      include: { memberships: true, login: { select: { passwordHash: true } } },
       orderBy: { name: "asc" },
     });
-    return rows.map((u) => ({ user: mapUser(u), teamIds: u.memberships.map((m) => m.teamId) }));
+    // Joined means a password is set — on their sign-in, or (before sign-ins
+    // were shared across workspaces) on the user row. The same test as the
+    // platform's own list of a workspace's people.
+    return rows.map((u) => ({
+      user: mapUser(u),
+      teamIds: u.memberships.map((m) => m.teamId),
+      pending: !(u.login?.passwordHash ?? u.passwordHash),
+    }));
   }
 
   async createTeam(params: { orgId: string; name: string; icon?: string; slaMinutes?: number | null }): Promise<Team> {

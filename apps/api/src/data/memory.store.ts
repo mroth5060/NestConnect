@@ -170,6 +170,9 @@ export class MemoryStore extends Store {
   private passwords: Map<string, string>;
   // Pending emailed invites: userId → { sha256(token), expiry ms }.
   private invites = new Map<string, { hash: string; exp: number }>();
+  /** Invited and not joined yet. An invitee holds a random guard password
+   *  here, so "has a password" can't say it — this does. */
+  private invited = new Set<string>();
   /** Per-inbox provider credentials, kept server-side only (never serialised). */
   private inboxConfig = new Map<string, Record<string, string>>();
   /** Org-scoped app settings, keyed by `${orgId}::${key}` (e.g. Google OAuth creds). */
@@ -312,7 +315,7 @@ export class MemoryStore extends Store {
   async refreshWorkspaceStatuses(): Promise<void> {}
 
   async listWorkspacePeople(): Promise<WorkspacePerson[]> {
-    return this.users.map((user) => ({ user, pending: !this.passwords.has(user.id) }));
+    return this.users.map((user) => ({ user, pending: this.invited.has(user.id) }));
   }
 
   async revokeWorkspaceSessions(): Promise<number> {
@@ -322,7 +325,7 @@ export class MemoryStore extends Store {
   }
 
   async reissueInvite(userId: string): Promise<string | undefined> {
-    if (!this.users.some((u) => u.id === userId) || this.passwords.has(userId)) return undefined;
+    if (!this.users.some((u) => u.id === userId) || !this.invited.has(userId)) return undefined;
     const inv = newInviteToken();
     this.invites.set(userId, { hash: inv.hash, exp: inv.expiresAt.getTime() });
     return inv.token;
@@ -576,7 +579,7 @@ export class MemoryStore extends Store {
   }
 
   async listMembers(): Promise<Member[]> {
-    return this.users.map((u) => ({ user: u, teamIds: this.membership[u.id] ?? [] }));
+    return this.users.map((u) => ({ user: u, teamIds: this.membership[u.id] ?? [], pending: this.invited.has(u.id) }));
   }
 
   async createTeam(params: { orgId: string; name: string; icon?: string; slaMinutes?: number | null }): Promise<Team> {
@@ -666,6 +669,7 @@ export class MemoryStore extends Store {
     this.passwords.set(id, bcrypt.hashSync(randomBytes(24).toString("hex"), 8));
     const inv = newInviteToken();
     this.invites.set(id, { hash: inv.hash, exp: inv.expiresAt.getTime() });
+    this.invited.add(id);
     return { user, inviteToken: inv.token };
   }
 
@@ -676,6 +680,7 @@ export class MemoryStore extends Store {
       if (Date.now() > inv.exp) return undefined; // expired
       this.passwords.set(userId, bcrypt.hashSync(password, 8));
       this.invites.delete(userId);
+      this.invited.delete(userId);
       return this.users.find((u) => u.id === userId);
     }
     return undefined;

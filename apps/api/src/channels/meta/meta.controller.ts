@@ -22,6 +22,8 @@ interface OAuthMessage {
   ok: boolean;
   provider?: string;
   number?: string;
+  /** The channel this connected, so the page opens its settings by id. */
+  inboxId?: string;
   error?: string;
 }
 
@@ -113,12 +115,13 @@ export class MetaController {
 
       // Reconnecting the same number refreshes its token instead of duplicating.
       const existing = await this.channelFor(number.phoneNumberId);
+      let inboxId = existing?.id;
       if (existing) {
         await this.store.updateInbox(existing.id, { name, channelConfig });
       } else {
         // Created unrouted — the admin sets the team(s) + strategy in the editor
         // that opens right after connecting, instead of routing to every team.
-        await this.store.createInbox({
+        inboxId = (await this.store.createInbox({
           orgId,
           type: "whatsapp",
           name,
@@ -126,7 +129,7 @@ export class MetaController {
           teamIds: [],
           routingStrategy: "manual",
           channelConfig,
-        });
+        })).id;
       }
 
       this.sendResult(res, {
@@ -134,6 +137,7 @@ export class MetaController {
         ok: true,
         provider: "whatsapp",
         number: number.displayNumber,
+        inboxId,
       });
     } catch (err) {
       this.sendResult(res, {
