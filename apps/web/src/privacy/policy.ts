@@ -97,7 +97,7 @@ export const OWNER_FIELDS: PrivacyOwnerFields = {
   companyDetails: "a private limited company registered in England and Wales, company number 17089989",
   postalAddress: "14 Grosvenor Way, London, E5 9ND, United Kingdom",
   contactEmail: "info@swiftee.co.uk",
-  effectiveDate: "2026-10-08",
+  effectiveDate: "2026-10-19",
   // Legal positions and retention: drafted for and approved by the owner.
   endCustomerDataRole: "processor",
   // Infrastructure: read from the live Railway project (service region
@@ -393,6 +393,37 @@ export function buildPolicy(f: ResolvedOwnerFields): PolicyDocument {
       ...pushBlocks,
     ],
   });
+
+  // What Google's OAuth verification asks every Gmail-connected app to
+  // disclose: what it reads, what it does with it, who else sees it, and the
+  // Limited Use pledge, linked to the policy it pledges to.
+  if (f.gmailIntegrationInUse) {
+    sections.push({
+      id: "google-user-data",
+      title: "Google user data (Gmail)",
+      blocks: [
+        p(
+          "A workspace can connect a Gmail mailbox as a shared inbox. The person connecting it signs in with Google and grants NestConnect permission to read the mailbox's email (gmail.readonly) and to send email as it (gmail.send), along with their Google account's email address and basic profile.",
+        ),
+        list(
+          "What we use it for: to bring email arriving in that mailbox, and its attachments, into the workspace's shared inbox, keep each email thread together as one conversation, and send the replies the workspace's team writes from NestConnect, as that mailbox. We use the account's email address to show which mailbox is connected.",
+          "Who sees it: the workspace users of the business that connected the mailbox, in the shared inbox. It is stored on the infrastructure that runs NestConnect, described under \"Who we share information with\".",
+          ...(f.anthropicPolishAvailable
+            ? [
+                "AI writing assistance: if an agent uses Polish on a reply in an email conversation, the draft and recent messages of that conversation are sent to Anthropic as described under \"AI writing assistance\", only to produce the suggestion the agent asked for.",
+              ]
+            : []),
+          "What we never do with it: sell it, use it for advertising, or use it to develop, improve or train generalised artificial-intelligence or machine-learning models. NestConnect staff do not read it unless the workspace asks us to for a specific message, it is needed for security (such as investigating abuse), to comply with the law, or it has been aggregated and anonymised for running the service.",
+          `Storing and removing it: emails become part of the workspace's conversations and are kept and deleted as described under "How long we keep information, and deletion". The mailbox's access tokens are ${f.secretEncryptionEnabledInProduction ? "stored encrypted, and are " : ""}deleted when its channel is deleted. You can also remove NestConnect's access at any time from your Google Account's security settings.`,
+        ),
+        p(
+          "NestConnect's use and transfer of information received from Google APIs to any other app will adhere to the ",
+          { text: "Google API Services User Data Policy", href: "https://developers.google.com/terms/api-services-user-data-policy" },
+          ", including the Limited Use requirements.",
+        ),
+      ],
+    });
+  }
 
   const logs: Block[] = [
     p(

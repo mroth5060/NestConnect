@@ -62,7 +62,7 @@ describe("privacy policy — unresolved owner fields (fail closed)", () => {
     expect(out).not.toContain('data-testid="privacy-pending"');
     const text = visibleText(out);
     expect(containsPlaceholderMarker(text)).toBe(false);
-    for (const fact of ["Nest Partners Limited", "17089989", "14 Grosvenor Way, London, E5 9ND", "info@swiftee.co.uk", "8 October 2026", "Railway"])
+    for (const fact of ["Nest Partners Limited", "17089989", "14 Grosvenor Way, London, E5 9ND", "info@swiftee.co.uk", "19 October 2026", "Railway"])
       expect(text).toContain(fact);
     // Production configuration as verified: Postmark and Sentry are off.
     expect(text).not.toMatch(/Postmark|Sentry/);

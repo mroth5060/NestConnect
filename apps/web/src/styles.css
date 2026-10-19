@@ -1598,7 +1598,12 @@ select.cfrow__v{appearance:none;-webkit-appearance:none;cursor:pointer}
 @keyframes mockDots{0%,60%,100%{transform:translateY(0);opacity:.35}30%{transform:translateY(-4px);opacity:1}}
 
 /* ── right panel + form ── */
-.login__panel{display:flex;align-items:center;justify-content:center;padding:var(--sp-10) 28px;overflow:auto;background:var(--bg)}
+.login__panel{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:var(--sp-10) 28px;overflow:auto;background:var(--bg)}
+.login__foot{width:min(380px,100%);margin-top:var(--sp-8);display:flex;flex-direction:column;gap:6px;font-size:var(--fs-xs);color:var(--text-muted);text-align:center}
+.login__foot p{margin:0;line-height:1.5}
+.login__foot nav{display:flex;justify-content:center;flex-wrap:wrap;gap:6px}
+.login__foot a{color:var(--text-muted);text-decoration:underline;text-underline-offset:2px}
+.login__foot a:hover{color:var(--brand)}
 .login__card{width:min(380px,100%);display:flex;flex-direction:column;gap:13px}
 /* .login__brand → flex items-center gap-2 mb-1 inline in LoginScreen.tsx */
 .login__card h1{margin:8px 0 0;font-size:var(--fs-2xl);font-weight:700;letter-spacing:-.025em}
