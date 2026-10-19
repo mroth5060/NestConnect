@@ -415,6 +415,10 @@ export const contactSchema = z.object({
   displayName: z.string(),
   company: z.string().optional(),
   phone: z.string().optional(),
+  /** Known to be on WhatsApp: they've written to us there. A phone number on
+   *  its own says nothing about it — it may only take texts — so a number is
+   *  shown as a phone, and WhatsApp's mark only where this is true. */
+  onWhatsApp: z.boolean().optional(),
   email: z.string().optional(),
   /** The browser id this customer first chatted from, if they came in through a
    *  NestChat widget. Its own field rather than folded into `phone`: it is not a

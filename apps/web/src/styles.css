@@ -1123,6 +1123,7 @@ input,textarea{font:inherit}
 .compose__rowchans{flex:0 0 auto;display:flex;align-items:center;gap:7px}
 .compose__chico{width:20px;height:20px;display:grid;place-items:center}
 .compose__chico svg{width:15px;height:15px;display:block}
+.compose__chico--phone{color:var(--text-muted)}
 .compose__back{display:inline-flex;align-items:center;gap:6px;color:var(--text-muted);font-size:var(--fs-xs);font-weight:500;margin-bottom:12px;transition:color var(--t-fast)}
 .compose__back:hover{color:var(--text)}
 .compose__back svg{width:14px;height:14px}

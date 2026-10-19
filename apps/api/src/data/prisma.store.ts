@@ -2651,13 +2651,29 @@ export class PrismaStore extends Store {
       const byId = new Map<string, (typeof idents)[number]["contact"]>();
       for (const i of idents) if (!byId.has(i.contactId)) byId.set(i.contactId, i.contact);
       const contacts = [...byId.values()];
+      let found: Contact;
       if (contacts.length > 1) {
         // Auto-merge: several contacts share this messaging identity. An inbound
         // from it proves they're the same customer, so consolidate (oldest wins).
         const winner = contacts.reduce((a, b) => (a.createdAt <= b.createdAt ? a : b));
-        return this.mergeContacts({ winnerId: winner.id, loserIds: contacts.filter((c) => c.id !== winner.id).map((c) => c.id) });
+        found = await this.mergeContacts({ winnerId: winner.id, loserIds: contacts.filter((c) => c.id !== winner.id).map((c) => c.id) });
+      } else {
+        found = mapContact(contacts[0]);
       }
-      return mapContact(contacts[0]);
+      // Matched on their phone number, but this came from WhatsApp: keep the
+      // WhatsApp id too. It's what says the number is on WhatsApp
+      // (`Contact.onWhatsApp`), and a customer first added by hand, or met by
+      // text, would otherwise never get it however often they wrote there.
+      if (params.kind === "wa_id" && !found.onWhatsApp) {
+        await this.prisma.contactIdentity
+          .create({ data: { contactId: found.id, orgId: params.orgId, kind: "wa_id", value: params.value, normalizedValue: normalized } })
+          // Another delivery of the same message got there first.
+          .catch((err) => {
+            if (err instanceof TenantViolationError) throw err;
+          });
+        found = { ...found, onWhatsApp: true };
+      }
+      return found;
     }
 
     try {

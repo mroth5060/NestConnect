@@ -223,7 +223,12 @@ export class MemoryStore extends Store {
     this.conversations = seed.conversations;
     this.templates = seed.templates;
     this.labels = seed.labels;
-    this.contacts = seed.conversations.map((c) => ({ ...c.contact }));
+    // A demo customer who chats on WhatsApp is, by that, on WhatsApp — as a
+    // real one is once their first message carries a WhatsApp id.
+    this.contacts = seed.conversations.map((c) => ({
+      ...c.contact,
+      ...(c.contact.phone && (c.channel === "whatsapp" || c.channel === "whatsapp_group") ? { onWhatsApp: true } : {}),
+    }));
     // Every demo user shares the dev password (real bcrypt hashing).
     const hash = bcrypt.hashSync(env.auth.devPassword, 8);
     this.passwords = new Map(this.users.map((u) => [u.id, hash]));
@@ -2053,13 +2058,18 @@ export class MemoryStore extends Store {
       if (!cv) return false;
       return (normalizeIdentity(matchKind, cv)?.normalized ?? cv) === normalized;
     });
+    // Kept beside the phone it shares a field with: a WhatsApp id is what
+    // says the number is on WhatsApp (see `Contact.onWhatsApp`).
+    const viaWhatsApp = params.kind === "wa_id";
     if (matches.length) {
       if (matches.length > 1) {
         // Auto-merge legacy duplicates that share this messaging identity — an
         // inbound proves they're the same customer (oldest record wins).
         const [winner, ...losers] = matches;
+        if (viaWhatsApp) winner.onWhatsApp = true;
         return this.mergeContacts({ winnerId: winner.id, loserIds: losers.map((c) => c.id) });
       }
+      if (viaWhatsApp) matches[0].onWhatsApp = true;
       return matches[0];
     }
     const contact: Contact = {
@@ -2070,6 +2080,7 @@ export class MemoryStore extends Store {
       tags: [],
       avatarColor: params.avatarColor ?? AVATAR_PALETTE[this.contacts.length % AVATAR_PALETTE.length],
       [key]: params.value,
+      ...(viaWhatsApp ? { onWhatsApp: true } : {}),
     } as Contact;
     this.contacts.push(contact);
     return contact;
@@ -2987,6 +2998,7 @@ export class MemoryStore extends Store {
     for (const l of losers) {
       winner.company ??= l.company;
       winner.phone ??= l.phone;
+      if (l.onWhatsApp) winner.onWhatsApp = true;
       winner.email ??= l.email;
       winner.avatarColor ??= l.avatarColor;
       winner.ownerUserId ??= l.ownerUserId;

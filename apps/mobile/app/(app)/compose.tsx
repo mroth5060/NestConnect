@@ -8,7 +8,7 @@ import type { ChannelType, Contact, Inbox } from "@ding/schemas";
 import { Avatar } from "../../src/components/Avatar";
 import { Field } from "../../src/components/Field";
 import { EmptyState } from "../../src/components/States";
-import { BackIcon, SearchIcon, channelColor, channelMeta } from "../../src/icons";
+import { BackIcon, PhoneIcon, SearchIcon, channelColor, channelMeta } from "../../src/icons";
 import { haptics } from "../../src/haptics";
 import { rowIn } from "../../src/motion";
 import { useTheme } from "../../src/theme";
@@ -229,8 +229,10 @@ export default function Compose() {
     }
     return (
       <View className="gap-2">
-        {/* SMS only where the workspace has an SMS channel — most have none. */}
-        {(inboxesFor("sms").length ? (["whatsapp", "sms", "email"] as const) : (["whatsapp", "email"] as const)).map((ch) => {
+        {/* WhatsApp and SMS both go to the phone number, each only where the
+            workspace has a channel of that kind: a number isn't a WhatsApp
+            account, and most workspaces have no SMS. */}
+        {(["whatsapp", "sms", "email"] as const).filter((ch) => ch === "email" || inboxesFor(ch).length > 0).map((ch) => {
           const meta = channelMeta(ch);
           const Glyph = meta.Glyph;
           const address = ch === "email" ? email : phone;
@@ -376,7 +378,7 @@ export default function Compose() {
                 autoFocus
               />
               <Field
-                label="Phone (WhatsApp)"
+                label="Phone"
                 value={draft.phone}
                 onChangeText={(v) => setDraft((d) => ({ ...d, phone: v }))}
                 placeholder="+44 7…"
@@ -457,7 +459,8 @@ export default function Compose() {
                           commit to opening them — it's the thing you'd otherwise
                           tap in to find out. */}
                       <View className="flex-row items-center gap-1.5">
-                        {item.phone ? <ChannelMark channel="whatsapp" /> : null}
+                        {item.phone ? <PhoneMark /> : null}
+                        {item.onWhatsApp ? <ChannelMark channel="whatsapp" /> : null}
                         {item.email ? <ChannelMark channel="email" /> : null}
                       </View>
                     </Touchable>
@@ -498,6 +501,13 @@ export default function Compose() {
       <KeyboardAvoidingView behavior="padding" />
     </View>
   );
+}
+
+/** A phone number on file. Not WhatsApp's mark: that's only for someone known
+ *  to be on WhatsApp (they've written to us there). */
+function PhoneMark() {
+  const { c } = useTheme();
+  return <PhoneIcon size={14} color={c.textMuted} />;
 }
 
 /** A small channel glyph, for the "reachable on" cue in the picker. */

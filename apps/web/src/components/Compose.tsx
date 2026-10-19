@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import type { Contact, Inbox } from "@ding/schemas";
 import { startedAlongside, useContacts, useInboxes } from "../hooks";
 import { api } from "../lib/api";
-import { channelMeta, XIcon, BackIcon, SearchIcon } from "../lib/icons";
+import { channelMeta, XIcon, BackIcon, PhoneIcon, SearchIcon } from "../lib/icons";
 import { useScrollLock } from "../lib/useScrollLock";
 import { useHoverGlide } from "../lib/useHoverGlide";
 import { Avatar } from "./Avatar";
@@ -17,6 +17,17 @@ function ChanIcon({ channel }: { channel: Channel }) {
   return (
     <span className="compose__chico" style={{ color: cm.color }} title={cm.label}>
       <Glyph />
+    </span>
+  );
+}
+
+/** A phone number on file. Neutral on purpose: a number may only take texts,
+ *  so it says "phone", and WhatsApp's mark sits beside it only for someone
+ *  known to be on WhatsApp. */
+function PhoneMark() {
+  return (
+    <span className="compose__chico compose__chico--phone" title="Phone">
+      <PhoneIcon />
     </span>
   );
 }
@@ -126,8 +137,9 @@ export function Compose({
     }
   };
 
-  const waHint = "Pick an approved template";
   const emailHint = "Write a new email";
+  // Nothing says a number is on WhatsApp until they've written from it.
+  const waHint = (known: boolean) => (known ? "Pick an approved template" : "Pick an approved template — if they use WhatsApp");
 
   // Channel buttons — but when a channel has several connected inboxes, first let
   // the user choose which one to send from. Shared by the existing/new flows.
@@ -136,7 +148,12 @@ export function Compose({
     if (list.length > 1) setPickInboxFor(ch);
     else onStart(ch, list[0]?.id);
   };
-  const renderChannels = (canWa: boolean, canEmail: boolean, onStart: (ch: Channel, inboxId?: string) => void) => {
+  const renderChannels = (
+    canPhone: boolean,
+    knownOnWhatsApp: boolean,
+    canEmail: boolean,
+    onStart: (ch: Channel, inboxId?: string) => void,
+  ) => {
     if (pickInboxFor) {
       const list = inboxesFor(pickInboxFor);
       const label = pickInboxFor === "whatsapp" ? "WhatsApp number" : pickInboxFor === "sms" ? "SMS number" : "email inbox";
@@ -166,10 +183,13 @@ export function Compose({
     }
     return (
       <div className="compose__chans">
-        <ChannelPick channel="whatsapp" disabled={!canWa} busy={busy === "whatsapp"} hint={waHint} onPick={() => chooseChannel("whatsapp", onStart)} />
-        {/* SMS goes to the same number as WhatsApp — where there's an SMS channel to send it from. */}
+        {/* WhatsApp and SMS both go to the phone number, each only where
+            there's a channel of that kind to send it from. */}
+        {inboxesFor("whatsapp").length > 0 && (
+          <ChannelPick channel="whatsapp" disabled={!canPhone} busy={busy === "whatsapp"} hint={waHint(knownOnWhatsApp)} onPick={() => chooseChannel("whatsapp", onStart)} />
+        )}
         {inboxesFor("sms").length > 0 && (
-          <ChannelPick channel="sms" disabled={!canWa} busy={busy === "sms"} hint="Send a text message" onPick={() => chooseChannel("sms", onStart)} />
+          <ChannelPick channel="sms" disabled={!canPhone} busy={busy === "sms"} hint="Send a text message" onPick={() => chooseChannel("sms", onStart)} />
         )}
         <ChannelPick channel="email" disabled={!canEmail} busy={busy === "email"} hint={emailHint} onPick={() => chooseChannel("email", onStart)} />
       </div>
@@ -197,7 +217,7 @@ export function Compose({
                 {selected.company && <small>{selected.company}</small>}
               </span>
             </div>
-            {renderChannels(!!selected.phone, !!selected.email, (ch, inboxId) => start(selected, ch, inboxId))}
+            {renderChannels(!!selected.phone, !!selected.onWhatsApp, !!selected.email, (ch, inboxId) => start(selected, ch, inboxId))}
           </div>
         ) : (
           <div className="modal__body">
@@ -229,7 +249,8 @@ export function Compose({
                           <small>{c.company || c.email || c.phone || ""}</small>
                         </span>
                         <span className="compose__rowchans">
-                          {c.phone && <ChanIcon channel="whatsapp" />}
+                          {c.phone && <PhoneMark />}
+                          {c.onWhatsApp && <ChanIcon channel="whatsapp" />}
                           {c.email && <ChanIcon channel="email" />}
                         </span>
                       </button>
@@ -244,14 +265,14 @@ export function Compose({
                   <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Customer name" autoFocus />
                 </label>
                 <label className="field">
-                  <span>Phone (WhatsApp)</span>
+                  <span>Phone</span>
                   <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+44 7…" inputMode="tel" />
                 </label>
                 <label className="field">
                   <span>Email</span>
                   <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" inputMode="email" />
                 </label>
-                {renderChannels(!!phone.trim(), !!email.trim(), (ch, inboxId) => createAndStart(ch, inboxId))}
+                {renderChannels(!!phone.trim(), false, !!email.trim(), (ch, inboxId) => createAndStart(ch, inboxId))}
               </div>
             )}
 
