@@ -62,6 +62,9 @@ export function ChatCuePill({ onOpen }: { onOpen: (roomId: string) => void }) {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
+      {/* Rings rippling out from the pill's edge as it lands. Keyed by the
+          message, so each new one ripples afresh rather than only the first. */}
+      {shown && <span className="cuepill__ripple" key={cue.key} aria-hidden="true" />}
       <button
         type="button"
         className="cuepill__main"
