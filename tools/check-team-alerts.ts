@@ -14,9 +14,11 @@
  *   B  a transfer to a team with nobody picked: the team's bell, phone and
  *      screen — not whoever moved it, not another team, not anyone who
  *      switched it off — and nothing when it's handed to a person instead;
- *   C  a new chat waiting unassigned: the team hears it as a new chat; the
- *      follow-ups in it stay under the noisy setting; one routed straight to an
- *      agent rings only that agent.
+ *   C  a new chat waiting unassigned: the team hears it as a new chat, and
+ *      every message after it until someone takes it — still the team's to
+ *      pick up, so still news to them. Once a colleague has it, the rest of
+ *      the team hears it only under the noisy setting ("Everything in my
+ *      team's inboxes"); one routed straight to an agent rings only that agent.
  *
  *     pnpm check:team-alerts
  */
@@ -174,7 +176,19 @@ async function main(): Promise<void> {
       sent.length = 0;
       await ingest.ingestNestChat({ inbox: chat, contact: marta, text: "Hello?", conversationId: first!.conversationId });
       await settle();
-      ok("a follow-up stays under the every-message setting", sent[0]?.kind === "team_message", sent[0]?.kind);
+      // The bug: "a colleague took the chat and I still get every message".
+      // Nobody has taken this one yet, so it is still the team's news.
+      ok("a follow-up nobody has taken yet still reaches the team as theirs", sent.length === 1 && sent[0]?.kind === "team_chat", sent.map((r) => r.kind).join());
+      ok("…reading as a message, not a second 'new chat'", sent[0]?.title === "Marta" && sent[0]?.body === "Hello?", `${sent[0]?.title} / ${sent[0]?.body}`);
+
+      sent.length = 0;
+      await store.assign(first!.conversationId, { assigneeUserId: AMARA, assignedTeamId: "team_sales" });
+      await ingest.ingestNestChat({ inbox: chat, contact: marta, text: "Still there?", conversationId: first!.conversationId });
+      await settle();
+      ok("once a colleague has it: they hear it as theirs", sent.some((r) => r.kind === "message" && r.userIds.join() === AMARA));
+      const rest = sent.find((r) => r.kind !== "message");
+      ok("…and the rest of the team only under the every-message setting", rest?.kind === "team_message" && rest.userIds.join() === NATHAN, sent.map((r) => `${r.kind}:${r.userIds.join("+")}`).join(", "));
+      ok("…which is off by default", DEFAULT_PUSH_PREFERENCES.teamInbound === false);
 
       sent.length = 0;
       decision = { assigneeUserId: AMARA, assignedTeamId: "team_sales" };

@@ -150,10 +150,14 @@ export class IngestService {
    * Tell whoever owns this conversation that a customer has written.
    *
    * Who "owns" it is the whole question. An assigned conversation notifies its
-   * assignee — that's the notification people actually want. An unassigned one
-   * sitting in a team queue notifies that team, but under a separate preference
-   * that is off by default: a shared inbox that pushes every arrival to everyone
-   * is how an app earns itself a permanently disabled notification setting.
+   * assignee — that's the notification people actually want. One nobody has
+   * taken is still the team's to pick up, so every message in it reaches the
+   * team under "New chats for my team" (on by default) until someone does — a
+   * customer's second message to an unclaimed chat is as new to the team as
+   * their first. Once it's taken, the rest of the team hears about it only if
+   * they asked for everything ("Team inbound", off by default): a shared inbox
+   * that pushes every message in colleagues' chats to everyone is how an app
+   * earns itself a permanently disabled notification setting.
    *
    * Fire-and-forget by construction — PushService never blocks ingest, and its
    * own rules (open thread, quiet hours, rate limit) decide what actually goes.
@@ -172,16 +176,16 @@ export class IngestService {
       this.push.notify({ userIds: [assignee], kind: "message", title, body, conversationId });
     }
     if (!team.length) return;
-    if (created && !assignee) {
-      // A brand-new chat waiting in the queue: the team hears about it under
-      // "new chats for my team" (on by default), not the noisy every-message
-      // setting. Follow-ups in it stay under that one.
-      const teamName = conv.assignedTeamId ? (await this.store.getTeam(conv.assignedTeamId))?.name : undefined;
+    if (!assignee) {
+      // Waiting for the team: the first message says it's a new chat and for
+      // whom; later ones read like any message, as the same thread.
+      const teamName =
+        created && conv.assignedTeamId ? (await this.store.getTeam(conv.assignedTeamId))?.name : undefined;
       this.push.notify({
         userIds: team,
         kind: "team_chat",
-        title: teamName ? `New chat for ${teamName}` : "New chat",
-        body: `${title}: ${body}`,
+        title: created ? (teamName ? `New chat for ${teamName}` : "New chat") : title,
+        body: created ? `${title}: ${body}` : body,
         conversationId,
       });
       return;

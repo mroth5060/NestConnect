@@ -67,11 +67,11 @@ const ALERT_TOGGLES: { key: keyof Pick<PushPreferences, "assigned" | "mentions" 
   { key: "mentions", label: "Mentions", detail: "Someone @mentions me in an internal note or in Team Chat" },
   { key: "assignments", label: "Assignments", detail: "A conversation is handed to me" },
   { key: "reminders", label: "Snooze reminders", detail: "Something I snoozed comes due" },
-  { key: "teamChats", label: "New chats for my team", detail: "A chat is sent to my team, or a new one arrives with nobody on it" },
+  { key: "teamChats", label: "New chats for my team", detail: "Every message in a chat waiting for my team, until someone takes it" },
   {
     key: "teamInbound",
     label: "Everything in my team's inboxes",
-    detail: "Every new message, not just mine — noisy on a busy shift",
+    detail: "Also messages in chats my colleagues have taken — noisy on a busy shift",
   },
   { key: "chatMessages", label: "Team Chat messages", detail: "A new message in one of my team chats, groups or direct chats" },
 ];
