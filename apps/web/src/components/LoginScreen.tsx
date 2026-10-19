@@ -261,6 +261,20 @@ export function LoginScreen() {
             </>
           )}
         </form>
+        {/* The sign-in screen is nestconnect.io's homepage, and a homepage says
+            what the product is and links its policies — Google's OAuth review
+            checks for exactly this before it will verify the Gmail connection.
+            Plain links: each is its own page, outside the app. */}
+        <footer className="login__foot">
+          <p>NestConnect is a shared team inbox for WhatsApp, email, SMS and website chat.</p>
+          <nav aria-label="Legal">
+            <a href="/privacy">Privacy policy</a>
+            <span aria-hidden="true">·</span>
+            <a href="/terms">Terms of service</a>
+            <span aria-hidden="true">·</span>
+            <a href="/data-deletion">Data deletion</a>
+          </nav>
+        </footer>
       </section>
     </div>
   );
