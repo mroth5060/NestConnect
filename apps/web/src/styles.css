@@ -1484,12 +1484,13 @@ select.cfrow__v{appearance:none;-webkit-appearance:none;cursor:pointer}
 
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--surface);padding:var(--sp-3) var(--sp-4);border-radius:var(--r-12);font-weight:500;font-size:var(--fs-sm);box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:var(--t-slow) var(--ease);z-index:60;display:flex;align-items:center;gap:9px}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-/* Team Chat pop-up: a pill at the bottom centre — who, which chat, what. Same
-   floating surface as menus; slides up, and sits under a toast if both show. */
-.cuepill{position:fixed;bottom:88px;left:50%;z-index:59;display:flex;align-items:center;gap:2px;
+/* Team Chat pop-up: a pill at the top centre, where the eye already is — who,
+   which chat, what. Same floating surface as menus; drops in from above, clear
+   of the toasts at the bottom. */
+.cuepill{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:50%;z-index:59;display:flex;align-items:center;gap:2px;
   max-width:min(460px,calc(100vw - 32px));padding:6px 6px 6px 6px;border-radius:var(--r-full);
   background:var(--glass);border:1px solid var(--glass-brd);box-shadow:var(--shadow-lg),inset 0 1px 0 var(--glass-hi);
-  transform:translateX(-50%) translateY(24px) scale(.98);opacity:0;pointer-events:none;
+  transform:translateX(-50%) translateY(-24px) scale(.98);opacity:0;pointer-events:none;
   transition:opacity var(--t-slow) var(--ease),transform var(--t-slow) var(--ease)}
 .cuepill.show{opacity:1;transform:translateX(-50%) translateY(0) scale(1);pointer-events:auto}
 .cuepill__main{display:flex;align-items:center;gap:10px;min-width:0;padding:0 10px 0 0;border-radius:var(--r-full);text-align:left;cursor:pointer}

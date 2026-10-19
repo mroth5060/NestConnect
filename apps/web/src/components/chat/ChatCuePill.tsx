@@ -8,7 +8,7 @@ import { Avatar } from "../Avatar";
 const SHOW_MS = 6_000;
 
 /**
- * A Team Chat message, popped up at the bottom of the page: who, where, what.
+ * A Team Chat message, popped up at the top of the page: who, where, what.
  *
  * Only for what the server says this person should hear about — so never a
  * muted chat or their own message — and never for the chat they already have
