@@ -49,6 +49,7 @@ import { Touchable } from "../../../src/components/Touchable";
 import { Avatar } from "../../../src/components/Avatar";
 import { mediaSource } from "../../../src/api-config";
 import { haptics } from "../../../src/haptics";
+import { useShrinkWhenEmpty } from "../../../src/shrink-when-empty";
 import { AttachIcon, BackIcon, DetailsIcon, EditIcon, ReplyIcon, SendIcon, CheckIcon, XIcon } from "../../../src/icons";
 import { useInsets } from "../../../src/insets";
 import { useTheme } from "../../../src/theme";
@@ -430,6 +431,8 @@ function Composer({
   const edit = useChatMutation(({ mid, body }: { mid: string; body: string }) => api.editChatMessage(mid, body));
   const { typed, stop } = useChatTypingSignal(roomId);
   const [text, setText] = useState("");
+  // Back to one line once sent (see shrink-when-empty).
+  const textBox = useShrinkWhenEmpty(text);
   const [draft, setDraft] = useState("");
   const [caret, setCaret] = useState(0);
   const input = useRef<TextInput>(null);
@@ -605,7 +608,8 @@ function Composer({
             placeholderTextColor={c.textFaint}
             multiline
             accessibilityLabel="Message"
-            style={{ color: c.text, maxHeight: 140 }}
+            onLayout={textBox.onLayout}
+            style={[{ color: c.text, maxHeight: 140 }, textBox.height]}
             className="flex-1 py-2.5 text-lg"
           />
         </View>
