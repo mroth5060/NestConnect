@@ -15,6 +15,11 @@ import { SwipeToReply } from "../SwipeToReply";
 import { Tail, tailCorner } from "../Tail";
 import { Ticks } from "../Ticks";
 
+/** A message's words, WhatsApp-sized. Shared with the typing bubble. */
+export const CHAT_TEXT = { fontSize: 17, lineHeight: 23 } as const;
+/** The face beside someone else's message in a group. */
+export const CHAT_FACE = 32;
+
 /**
  * One message in a Team Chat thread: swipe it to reply, long-press it for the
  * rest. Mine on the right in the app's own tint, theirs on the left; in a group
@@ -91,7 +96,7 @@ export const ChatBubbleRow = memo(function ChatBubbleRow({
       }
     >
       {group && !mine && first && !jumbo ? (
-        <Text style={{ color: chatNameColour(m.author?.id) }} className="mb-0.5 text-sm font-semibold">
+        <Text style={{ color: chatNameColour(m.author?.id) }} className="mb-0.5 text-md font-semibold">
           {m.author?.name ?? "Former teammate"}
         </Text>
       ) : null}
@@ -103,10 +108,10 @@ export const ChatBubbleRow = memo(function ChatBubbleRow({
           style={{ borderLeftColor: chatNameColour(m.replyTo.authorId), backgroundColor: mine ? "rgba(0,0,0,0.05)" : c.surface2 }}
           className="mb-1 rounded-8 border-l-4 px-2 py-1"
         >
-          <Text style={{ color: chatNameColour(m.replyTo.authorId) }} className="text-sm font-semibold">
+          <Text style={{ color: chatNameColour(m.replyTo.authorId) }} className="text-md font-semibold">
             {m.replyTo.authorId && m.replyTo.authorId === meId ? "You" : m.replyTo.authorName}
           </Text>
-          <Text numberOfLines={2} className="text-sm text-muted">
+          <Text numberOfLines={2} className="text-md text-muted">
             {m.replyTo.deleted ? "This message was deleted" : m.replyTo.body}
           </Text>
         </Pressable>
@@ -119,8 +124,10 @@ export const ChatBubbleRow = memo(function ChatBubbleRow({
       {files.length ? <Attachments items={files} mine={mine} /> : null}
       {!deleted && !m.body ? null : (
       <Text
-        style={deleted ? { fontStyle: "italic", color: c.textMuted } : jumbo ? { fontSize: 40, lineHeight: 48 } : undefined}
-        className={jumbo ? "" : `text-lg leading-snug text-fg${files.length ? " mt-1" : ""}`}
+        // WhatsApp's size for a message: 17 points. It was 16, which read as
+        // a size smaller than the app everybody here has open beside it.
+        style={jumbo ? { fontSize: 40, lineHeight: 48 } : { ...CHAT_TEXT, ...(deleted ? { fontStyle: "italic" as const, color: c.textMuted } : null) }}
+        className={jumbo ? "" : `text-fg${files.length ? " mt-1" : ""}`}
       >
         {deleted
           ? mine
@@ -167,7 +174,7 @@ export const ChatBubbleRow = memo(function ChatBubbleRow({
           </View>
         ) : null}
         {m.editedAt && !deleted ? <Text className="text-2xs italic text-faint">Edited</Text> : null}
-        <Text className="text-2xs text-faint">{clockTime(m.createdAt)}</Text>
+        <Text className="text-xs text-faint">{clockTime(m.createdAt)}</Text>
         {mine && !deleted ? <Ticks status={status} /> : null}
       </View>
       {last && !jumbo ? <Tail mine={mine} fill={fill} /> : null}
@@ -179,9 +186,9 @@ export const ChatBubbleRow = memo(function ChatBubbleRow({
       <SwipeToReply onReply={() => onReply(m)} mine={mine} enabled={canAct && !deleted && !m.pending && !m.failed}>
         <View className={`flex-row items-end ${mine ? "justify-end" : "justify-start"}`}>
           {group && !mine ? (
-            <View style={{ width: 30, marginRight: 6 }}>
+            <View style={{ width: CHAT_FACE + 2, marginRight: 6 }}>
               {last && m.author ? (
-                <Avatar name={m.author.name} color={m.author.avatarColor} size={28} photo={m.author.avatarUrl ? mediaSource(m.author.avatarUrl) : null} />
+                <Avatar name={m.author.name} color={m.author.avatarColor} size={CHAT_FACE} photo={m.author.avatarUrl ? mediaSource(m.author.avatarUrl) : null} />
               ) : null}
             </View>
           ) : null}

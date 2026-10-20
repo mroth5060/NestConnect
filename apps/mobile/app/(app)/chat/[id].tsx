@@ -12,6 +12,7 @@ import {
   useChatRoom,
   useChatRoomOpen,
   useChatStars,
+  chatNameColour,
   useChatTyping,
   useChatTypingSignal,
   useMarkChatRead,
@@ -25,7 +26,6 @@ import {
 import {
   CHAT_MESSAGE_MAX,
   chatSystemText,
-  joinNames,
   mentionsToNames,
   namesToHandles,
   type ChatMember,
@@ -40,7 +40,7 @@ import { StagedAttachments } from "../../../src/components/StagedAttachments";
 import { VoiceRecorder } from "../../../src/components/VoiceRecorder";
 import { useVoiceRecording } from "../../../src/voice";
 import { ChatAvatar } from "../../../src/components/chat/ChatAvatar";
-import { ChatBubbleRow } from "../../../src/components/chat/ChatBubble";
+import { CHAT_FACE, CHAT_TEXT, ChatBubbleRow } from "../../../src/components/chat/ChatBubble";
 import { ChatInfoSheet, ChatMessageSheet } from "../../../src/components/chat/ChatSheets";
 import { ReactionsSheet } from "../../../src/components/chat/ReactionsSheet";
 import { ErrorState, Loading } from "../../../src/components/States";
@@ -169,13 +169,10 @@ export default function ChatScreen() {
     );
   }
 
-  const subline = typing.length
-    ? r.kind === "direct"
-      ? "typing…"
-      : `${joinNames(typing.map((n) => n.split(" ")[0]!))} ${typing.length === 1 ? "is" : "are"} typing…`
-    : r.kind === "direct"
-      ? chatLastSeen(r.other)
-      : membersLine(r.members, me?.id);
+  // Who's here, and nothing about typing: as WhatsApp now does, that shows in
+  // the conversation, where it's going to land, with the face and name of
+  // whoever it is — not in the header, swapping out "online" while they type.
+  const subline = r.kind === "direct" ? chatLastSeen(r.other) : membersLine(r.members, me?.id);
   const group = r.kind !== "direct" || r.oversight;
   // Moderating is for chats you're in: an admin reading one they aren't in can't delete there.
   const moderator = r.isMember && (me?.role === "admin" || r.canManage);
@@ -193,12 +190,12 @@ export default function ChatScreen() {
           accessibilityLabel={`${r.name}, chat info`}
           className="flex-1 flex-row items-center gap-2.5"
         >
-          <ChatAvatar room={r} size={38} />
+          <ChatAvatar room={r} size={40} />
           <View className="flex-1">
-            <Text numberOfLines={1} className="text-lg font-semibold leading-tight text-fg">
+            <Text numberOfLines={1} style={{ fontSize: 17, lineHeight: 22 }} className="font-semibold text-fg">
               {r.name}
             </Text>
-            <Text numberOfLines={1} style={typing.length ? { color: c.wa, fontWeight: "600" } : undefined} className="text-2xs leading-snug text-faint">
+            <Text numberOfLines={1} className="text-sm leading-snug text-faint">
               {subline}
             </Text>
           </View>
@@ -288,7 +285,7 @@ export default function ChatScreen() {
             />
           );
         }}
-        ListHeaderComponent={typing.length ? <TypingDots /> : null}
+        ListHeaderComponent={typing.length ? <Typing names={typing} members={r.members} group={r.kind !== "direct"} /> : null}
         ListFooterComponent={
           msgs.isFetchingNextPage ? (
             <Text className="py-3 text-center text-2xs text-muted">Loading earlier messages…</Text>
@@ -389,13 +386,40 @@ function membersLine(members: ChatMember[], meId: string | undefined): string {
   return `${names}${others.length > 5 ? ` +${others.length - 5}` : ""}${online ? ` · ${online} online` : ""}`;
 }
 
-function TypingDots() {
+/**
+ * Someone typing, where their message is about to land — WhatsApp's way now.
+ * In a group it reads as one of their messages would: their face beside it and
+ * their name on it, so it says who as well as that. In a direct chat the dots
+ * are enough; there's only one person it can be.
+ */
+function Typing({ names, members, group }: { names: string[]; members: ChatMember[]; group: boolean }) {
   const { c } = useTheme();
   return (
-    <View style={{ backgroundColor: c.surface }} className="ml-1 mt-2 flex-row gap-1 self-start rounded-12 px-3.5 py-3">
-      {[0, 1, 2].map((i) => (
-        <View key={i} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.textFaint, opacity: 0.4 + i * 0.2 }} />
-      ))}
+    <View className="mt-2 gap-1.5">
+      {(group ? names.slice(0, 3) : names.slice(0, 1)).map((name) => {
+        const who = members.find((m) => m.name === name);
+        return (
+          <View key={name} accessibilityLabel={`${name} is typing`} className="flex-row items-end">
+            {group ? (
+              <View style={{ width: CHAT_FACE + 2, marginRight: 6 }}>
+                <Avatar name={name} color={who?.avatarColor} size={CHAT_FACE} photo={who?.avatarUrl ? mediaSource(who.avatarUrl) : null} />
+              </View>
+            ) : null}
+            <View style={{ backgroundColor: c.surface, borderRadius: 14, borderBottomLeftRadius: 4 }} className="px-3 py-2">
+              {group ? (
+                <Text style={{ color: chatNameColour(who?.id) }} className="mb-1 text-md font-semibold">
+                  {name}
+                </Text>
+              ) : null}
+              <View style={{ height: CHAT_TEXT.lineHeight }} className="flex-row items-center gap-1">
+                {[0, 1, 2].map((i) => (
+                  <View key={i} style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: c.textFaint, opacity: 0.4 + i * 0.2 }} />
+                ))}
+              </View>
+            </View>
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -609,8 +633,8 @@ function Composer({
             multiline
             accessibilityLabel="Message"
             onLayout={textBox.onLayout}
-            style={[{ color: c.text, maxHeight: 140 }, textBox.height]}
-            className="flex-1 py-2.5 text-lg"
+            style={[{ color: c.text, maxHeight: 140, fontSize: 17 }, textBox.height]}
+            className="flex-1 py-2.5"
           />
         </View>
         {empty ? (

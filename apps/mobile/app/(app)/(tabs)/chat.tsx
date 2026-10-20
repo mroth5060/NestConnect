@@ -286,25 +286,26 @@ function Row({
       onLongPress={onLongPress}
       accessibilityRole="button"
       accessibilityLabel={`${r.name}${unread ? `, ${r.unread} unread` : ""}`}
-      // The Inbox row's measurements — padding, avatar, name and time sizes —
-      // so switching between the two lists doesn't shift anything.
-      className="flex-row items-center gap-3 px-4 py-3"
+      // WhatsApp's chat list, sized as it is: a 56-point face, the name at
+      // 17, what was said at 15. It was the Inbox row's, a size smaller, and
+      // read as cramped beside the app everybody here has open next to it.
+      className="flex-row items-center gap-3 px-4 py-3.5"
     >
-      <ChatAvatar room={r} size={52} />
+      <ChatAvatar room={r} size={56} />
       <View className="flex-1 gap-1">
         <View className="flex-row items-center gap-2">
-          <Text numberOfLines={1} className={`flex-1 text-lg text-fg ${unread ? "font-semibold" : "font-medium"}`}>
+          <Text numberOfLines={1} style={{ fontSize: 17, lineHeight: 22 }} className={`flex-1 text-fg ${unread ? "font-bold" : "font-semibold"}`}>
             {r.name}
           </Text>
-          <Text style={{ color: unread ? c.wa : c.textFaint }} className={`text-xs ${unread ? "font-semibold" : ""}`}>
+          <Text style={{ color: unread ? c.wa : c.textFaint }} className={`text-md ${unread ? "font-semibold" : ""}`}>
             {chatListTime(r.lastActivityAt)}
           </Text>
         </View>
         <View className="flex-row items-center gap-1.5">
           <Text
             numberOfLines={1}
-            style={{ color: unread ? c.text : c.textMuted, fontStyle: r.lastMessage?.deletedAt ? "italic" : "normal" }}
-            className="flex-1 text-md"
+            style={{ color: unread ? c.text : c.textMuted, fontStyle: r.lastMessage?.deletedAt ? "italic" : "normal", fontSize: 15, lineHeight: 20 }}
+            className="flex-1"
           >
             {preview || (r.kind === "team" ? "Your team's chat" : r.archived ? "Archived" : "")}
           </Text>
@@ -315,13 +316,13 @@ function Row({
             </View>
           ) : null}
           {r.mentioned && unread ? (
-            <View style={{ backgroundColor: c.wa }} className="h-5 w-5 items-center justify-center rounded-full">
-              <Text className="text-2xs font-bold text-white">@</Text>
+            <View style={{ backgroundColor: c.wa }} className="h-[22px] w-[22px] items-center justify-center rounded-full">
+              <Text className="text-xs font-bold text-white">@</Text>
             </View>
           ) : null}
           {unread ? (
-            <View style={{ backgroundColor: r.muted ? c.textFaint : c.wa }} className="h-5 min-w-[20px] items-center justify-center rounded-full px-1.5">
-              <Text className="text-2xs font-bold text-white">{r.unread > 99 ? "99+" : r.unread}</Text>
+            <View style={{ backgroundColor: r.muted ? c.textFaint : c.wa }} className="h-[22px] min-w-[22px] items-center justify-center rounded-full px-1.5">
+              <Text className="text-xs font-bold text-white">{r.unread > 99 ? "99+" : r.unread}</Text>
             </View>
           ) : null}
           {!r.isMember ? (

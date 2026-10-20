@@ -7,7 +7,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useMemo, useState } from "react";
-import { View } from "react-native";
+import { View, useWindowDimensions } from "react-native";
 import { haptics } from "../haptics";
 import { ReplyIcon } from "../icons";
 import { useTheme } from "../theme";
@@ -37,6 +37,17 @@ const COMMIT = 45;
 
 /** Diameter of the arrow disc. */
 const ARROW = 28;
+
+/**
+ * How close to the screen's edge a swipe can start and still be the phone's.
+ *
+ * iOS goes back with a swipe in from the left edge, and Android with one in
+ * from either. A message row runs the full width of the screen, so a swipe
+ * from the edge over somebody's message was taken as a reply and the chat
+ * never closed. WhatsApp leaves the edge to the phone: a reply is a swipe on
+ * the message, not one that begins at the rim. So does this.
+ */
+const EDGE = 30;
 
 /**
  * Swipe a bubble to reply to it, the way WhatsApp does.
@@ -83,6 +94,7 @@ export function SwipeToReply({
   children: React.ReactNode;
 }) {
   const { c } = useTheme();
+  const { width: screen } = useWindowDimensions();
   const x = useSharedValue(0);
   // Measured height of the row, so the arrow can be centred on it explicitly.
   const [h, setH] = useState(0);
@@ -102,6 +114,11 @@ export function SwipeToReply({
     // the scroll view.
     .activeOffsetX(mine ? [-12, 99999] : [-99999, 12])
     .failOffsetY([-14, 14])
+    // Begun at either edge: that's the back gesture, not a reply.
+    .onTouchesDown((e, state) => {
+      const at = e.allTouches[0]?.absoluteX;
+      if (at !== undefined && (at < EDGE || at > screen - EDGE)) state.fail();
+    })
     .enabled(enabled)
     .onUpdate((e) => {
       // Only in the one direction, and damped past the commit point so it can't
@@ -112,7 +129,7 @@ export function SwipeToReply({
     .onEnd(() => {
       if (x.value >= COMMIT) runOnJS(commit)();
       x.value = withTiming(0, { duration: 200 });
-    }), [x, mine, dir, enabled, commit]);
+    }), [x, mine, dir, enabled, commit, screen]);
 
   const bubble = useAnimatedStyle(() => ({
     transform: [{ translateX: dir * x.value }],
