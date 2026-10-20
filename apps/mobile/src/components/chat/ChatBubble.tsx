@@ -20,6 +20,10 @@ export const CHAT_TEXT = { fontSize: 17, lineHeight: 23 } as const;
 /** The face beside someone else's message in a group. */
 export const CHAT_FACE = 32;
 
+/** A reaction chip, and how far of it hangs below the bubble: all but 4. */
+const REACTION_HEIGHT = 24;
+const REACTION_BELOW = REACTION_HEIGHT - 4;
+
 /**
  * One message in a Team Chat thread: swipe it to reply, long-press it for the
  * rest. Mine on the right in the app's own tint, theirs on the left; in a group
@@ -106,7 +110,9 @@ export const ChatBubbleRow = memo(function ChatBubbleRow({
           accessibilityRole="button"
           accessibilityLabel={`Replying to ${m.replyTo.authorName}`}
           style={{ borderLeftColor: chatNameColour(m.replyTo.authorId), backgroundColor: mine ? "rgba(0,0,0,0.05)" : c.surface2 }}
-          className="mb-1 rounded-8 border-l-4 px-2 py-1"
+          // Room above and below the quote, as WhatsApp gives it: at py-1 the
+          // name and the line under it sat tight against the highlight.
+          className="mb-1.5 rounded-8 border-l-4 px-2.5 py-2"
         >
           <Text style={{ color: chatNameColour(m.replyTo.authorId) }} className="text-md font-semibold">
             {m.replyTo.authorId && m.replyTo.authorId === meId ? "You" : m.replyTo.authorName}
@@ -182,7 +188,7 @@ export const ChatBubbleRow = memo(function ChatBubbleRow({
   );
 
   return (
-    <View style={{ marginTop: first ? 8 : 2, marginBottom: m.reactions.length ? 14 : 0 }}>
+    <View style={{ marginTop: first ? 8 : 2, marginBottom: m.reactions.length ? REACTION_BELOW + 2 : 0 }}>
       <SwipeToReply onReply={() => onReply(m)} mine={mine} enabled={canAct && !deleted && !m.pending && !m.failed}>
         <View className={`flex-row items-end ${mine ? "justify-end" : "justify-start"}`}>
           {group && !mine ? (
@@ -205,10 +211,12 @@ export const ChatBubbleRow = memo(function ChatBubbleRow({
       {m.reactions.length ? (
         <View
           className={`flex-row gap-1 ${mine ? "self-end" : "self-start"}`}
-          style={{ position: "absolute", bottom: -12, ...(mine ? { right: 10 } : { left: group ? 46 : 10 }) }}
+          // Hung off the bubble's bottom edge, overlapping it by a few points as
+          // WhatsApp's does — not halfway up it, where it sat on the time of a
+          // short message.
+          style={{ position: "absolute", bottom: -REACTION_BELOW, ...(mine ? { right: 10 } : { left: group ? CHAT_FACE + 18 : 10 }) }}
         >
           {m.reactions.map((r) => {
-            const minePicked = !!meId && r.userIds.includes(meId);
             return (
               <Pressable
                 key={r.emoji}
@@ -216,8 +224,12 @@ export const ChatBubbleRow = memo(function ChatBubbleRow({
                 onPress={() => (onShowReactions ? onShowReactions(m, r.emoji) : onReact(m, r.emoji))}
                 accessibilityRole="button"
                 accessibilityLabel={`${r.emoji} ${r.userIds.length}${onShowReactions ? ", see who reacted" : ""}`}
-                style={{ backgroundColor: c.surface, borderColor: minePicked ? c.wa : c.border }}
-                className="h-6 flex-row items-center gap-0.5 rounded-full border px-1.5"
+                // Outlined in the chat's own background, so it reads as cut out
+                // of the bubble's edge — the customer thread's chip, and
+                // WhatsApp's. It was green when the reaction was mine, which
+                // looked like a selection rather than a reaction.
+                style={{ backgroundColor: c.surface, borderColor: c.surface2, borderWidth: 1.5, height: REACTION_HEIGHT }}
+                className="flex-row items-center gap-0.5 rounded-full px-1.5"
               >
                 <Text style={{ fontSize: 13 }}>{r.emoji}</Text>
                 {r.userIds.length > 1 ? <Text className="text-2xs font-semibold text-muted">{r.userIds.length}</Text> : null}
