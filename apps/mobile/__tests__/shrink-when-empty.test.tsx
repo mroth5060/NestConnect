@@ -12,7 +12,7 @@ import { useShrinkWhenEmpty } from "../src/shrink-when-empty";
 const laidOut = (height: number) => ({ nativeEvent: { layout: { x: 0, y: 0, width: 300, height } } }) as LayoutChangeEvent;
 
 it("holds an emptied box to the one-line height it was measured at", () => {
-  const { result, rerender } = renderHook(({ value }) => useShrinkWhenEmpty(value), { initialProps: { value: "" } });
+  const { result, rerender } = renderHook(({ value }: { value: string }) => useShrinkWhenEmpty(value), { initialProps: { value: "" } });
   act(() => result.current.onLayout(laidOut(40)));
   // Typing grows it: nothing is imposed while there is text.
   rerender({ value: "A long message\nover\nfour lines" });
@@ -29,7 +29,7 @@ it("imposes nothing before it has been measured", () => {
 });
 
 it("learns the one-line height from a single line of text too", () => {
-  const { result, rerender } = renderHook(({ value }) => useShrinkWhenEmpty(value), { initialProps: { value: "a draft\nthat was long" } });
+  const { result, rerender } = renderHook(({ value }: { value: string }) => useShrinkWhenEmpty(value), { initialProps: { value: "a draft\nthat was long" } });
   act(() => result.current.onLayout(laidOut(90)));
   rerender({ value: "short" });
   act(() => result.current.onLayout(laidOut(40)));
