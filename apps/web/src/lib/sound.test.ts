@@ -15,8 +15,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  *  the test drives. */
 function fakeAudio() {
   const started: number[] = [];
+  const levels: number[] = [];
   let state: "running" | "suspended" = "running";
-  const param = () => ({ setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {}, value: 0 });
+  const param = () => ({ setValueAtTime: () => {}, exponentialRampToValueAtTime: (v: number) => levels.push(v), value: 0 });
   const node = () => ({ connect: (n: unknown) => n, type: "", frequency: param(), Q: param(), gain: param() });
   const ctx = {
     get state() {
@@ -39,6 +40,7 @@ function fakeAudio() {
   return {
     ctx,
     started,
+    levels,
     suspend: () => {
       state = "suspended";
     },
@@ -77,6 +79,13 @@ describe("an arriving message", () => {
     await Promise.resolve();
     expect(audio.ctx.resume).toHaveBeenCalled();
     expect(audio.started.length).toBeGreaterThan(0);
+  });
+
+  it("chimes at full volume", () => {
+    // It played at 6% and people didn't hear it. How loud it is belongs to
+    // the computer's volume, not to a number in here.
+    sound.playReceived();
+    expect(Math.max(...audio.levels)).toBe(1);
   });
 
   it("stays silent when the person has turned sound off", () => {

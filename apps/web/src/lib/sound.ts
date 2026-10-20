@@ -5,6 +5,7 @@
  *  - outbound note / other → a soft synth blip,
  *  - incoming message → a gentle two-note "ding".
  * Everything except the WhatsApp clip is synthesised with the Web Audio API.
+ * Every cue plays at full volume: the computer's own volume is the control.
  *
  * Sound is on by default, muteable, and the choice persists in localStorage.
  * Browsers block audio until the first user gesture — `unlock()` (wired to the
@@ -98,7 +99,7 @@ function playWhatsAppSent(): void {
     if (!waEl) {
       waEl = new Audio(WHATSAPP_SENT_SOUND);
       waEl.preload = "auto";
-      waEl.volume = 0.75;
+      waEl.volume = 1;
     }
     waEl.currentTime = 0;
     void waEl.play().catch(() => {});
@@ -127,7 +128,7 @@ function playSwoosh(): void {
   bp.Q.value = 0.9;
   const gain = ac.createGain();
   gain.gain.setValueAtTime(0.0001, t);
-  gain.gain.exponentialRampToValueAtTime(0.16, t + 0.05);
+  gain.gain.exponentialRampToValueAtTime(1, t + 0.05);
   gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   src.connect(bp).connect(gain).connect(ac.destination);
   src.start(t);
@@ -149,16 +150,16 @@ export function playSent(channel?: string): void {
   const ac = audio();
   if (!ac) return;
   const t = ac.currentTime;
-  tone(520, t, 0.09, 0.05);
-  tone(780, t + 0.05, 0.1, 0.045);
+  tone(520, t, 0.09, 1);
+  tone(780, t + 0.05, 0.1, 1);
 }
 
 /** The chime itself, once the context is known to be running. */
 function chime(ac: AudioContext): void {
   const t = ac.currentTime;
-  tone(660, t, 0.16, 0.06);
-  tone(990, t + 0.11, 0.18, 0.06);
-  tone(1320, t + 0.24, 0.26, 0.055);
+  tone(660, t, 0.16, 1);
+  tone(990, t + 0.11, 0.18, 1);
+  tone(1320, t + 0.24, 0.26, 1);
 }
 
 /**
