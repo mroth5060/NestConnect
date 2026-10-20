@@ -705,6 +705,26 @@ export class NestChatController {
   }
 
   /**
+   * Switch this session to another of the visitor's own open conversations —
+   * the order they tapped on the home screen, rather than the one the session
+   * happened to be on. A new token comes back naming it, with its messages.
+   *
+   * 404 for one that isn't theirs, doesn't exist or is closed: the same answer
+   * reading one gives, for the same reason.
+   */
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Post("conversations/:conversationId/open")
+  async openConversation(
+    @Headers("authorization") auth: string | undefined,
+    @Param("conversationId") conversationId: string,
+  ): Promise<{ token: string; hasConversation: true; messages: NestChatMessage[] }> {
+    const claims = await this.nestchat.visitor(bearer(auth));
+    const switched = await this.nestchat.switchVisitorConversation(claims, conversationId);
+    if (!switched) throw new NotFoundException("No such open conversation");
+    return { token: switched.token, hasConversation: true, messages: switched.messages };
+  }
+
+  /**
    * The pre-chat form, submitted: who they are, and what they're here about.
    *
    * One call rather than an identify followed by a routing call, because these

@@ -538,6 +538,42 @@ class NestConnect {
     }
   }
 
+  /// Make another of this customer's open conversations the one being written
+  /// to — the order they tapped on the home screen.
+  ///
+  /// A channel with a conversation per order gives a customer several open at
+  /// once, but a session writes to one. Tapping another used to show the
+  /// session's own thread instead. This moves the session: the server checks
+  /// the conversation is theirs and open, and hands back a token naming it,
+  /// with its messages. Throws [NestException] when it isn't (closed meanwhile,
+  /// or not theirs) — the session stays where it was.
+  Future<void> switchTo(String conversationId) async {
+    final token = _token;
+    if (token == null) return;
+    final raw = await _transport.postJson(
+      '/conversations/${Uri.encodeComponent(conversationId)}/open',
+      const <String, Object?>{},
+      token: token,
+    );
+    final map = raw is Map ? raw : const <String, Object?>{};
+    final next = map['token'] as String?;
+    if (next == null || token != _token) return;
+    _dropStream();
+    _token = next;
+    await _store.write(_tokenKey(), next);
+    _setClosed(false);
+    _setMessages(
+      (map['messages'] as List? ?? const [])
+          .map(NestMessage.tryParse)
+          .whereType<NestMessage>()
+          .toList(growable: false),
+    );
+    _listen();
+    // "On screen" belongs to the conversation the token names, which is now
+    // this one.
+    if (_viewing) unawaited(_reportViewing());
+  }
+
   /// One earlier conversation, read in full.
   ///
   /// Read-only on purpose, and separate from [messages] for that reason: this is

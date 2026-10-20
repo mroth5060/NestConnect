@@ -1,6 +1,6 @@
 name: nestconnect_client
 description: Talk to a Nest Connect live-chat channel from Dart — sessions, messages, attachments and the live stream.
-version: 0.6.2
+version: 0.6.3
 publish_to: none
 
 environment:

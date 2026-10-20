@@ -1025,6 +1025,7 @@ export class NestChatService {
         from: last.from,
         ...(last.authorName ? { authorName: last.authorName } : {}),
         at: last.at,
+        ...(conv.id === claims.conversationId ? { current: true } : {}),
       });
     }
     return out;
@@ -1044,6 +1045,12 @@ export class NestChatService {
     claims: VisitorClaims,
     conversationId: string,
   ): Promise<NestChatMessage[] | undefined> {
+    if (!(await this.ownConversation(claims, conversationId))) return undefined;
+    return this.visitorHistory(conversationId);
+  }
+
+  /** The conversation, if it is this visitor's own on this channel. */
+  private async ownConversation(claims: VisitorClaims, conversationId: string) {
     const conv = await this.store.getConversation(conversationId);
     if (
       !conv ||
@@ -1053,7 +1060,33 @@ export class NestChatService {
     ) {
       return undefined;
     }
-    return this.visitorHistory(conversationId);
+    return conv;
+  }
+
+  /**
+   * Move this session onto another of the visitor's own open conversations.
+   *
+   * A channel keyed by a field ("one conversation per order") gives a customer
+   * several open threads at once, and the home screen lists them all — but a
+   * session writes to one. Tapping another open order used to show the
+   * session's own thread, not the one tapped. This reissues the token for the
+   * conversation chosen, after the same ownership checks as reading it, so what
+   * they send next lands there.
+   *
+   * A closed one is refused: it is read, not written to. The rest of the
+   * session (who they are, any routing choice) carries over unchanged; fields
+   * meant for a thread not yet created do not, as this one already exists.
+   */
+  async switchVisitorConversation(
+    claims: VisitorClaims,
+    conversationId: string,
+  ): Promise<{ token: string; messages: NestChatMessage[] } | undefined> {
+    const conv = await this.ownConversation(claims, conversationId);
+    if (!conv || conv.status === "closed") return undefined;
+    return {
+      token: this.signVisitorToken({ ...claims, conversationId: conv.id, fields: undefined }),
+      messages: await this.visitorHistory(conv.id),
+    };
   }
 
   /**

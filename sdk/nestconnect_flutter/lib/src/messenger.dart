@@ -230,6 +230,24 @@ class _NestMessengerState extends State<NestMessenger> with WidgetsBindingObserv
     }
   }
 
+  /// Carry on in an open conversation — the one tapped, not just whichever the
+  /// session was on. With a conversation per order, each open order is its own
+  /// thread; this moves the session to the one chosen before showing it.
+  Future<void> _continue(NestPastConversation conversation) async {
+    if (!conversation.current) {
+      try {
+        await widget.chat.switchTo(conversation.id);
+      } on NestException {
+        // Closed or gone since the list was drawn. The list, fetched again,
+        // shows it as it is now — resolved, or not there — rather than opening
+        // a thread it can't be.
+        if (mounted) unawaited(_loadHistory());
+        return;
+      }
+    }
+    if (mounted) setState(() => _view = NestView.thread);
+  }
+
   /// Back to the cards — or out, where there is no home screen to go back to.
   void _backHome() {
     setState(() {
@@ -479,6 +497,7 @@ class _NestMessengerState extends State<NestMessenger> with WidgetsBindingObserv
             loadingConversations: _loadingHistory,
             onStartChat: () => setState(() => _view = NestView.thread),
             onOpenConversation: (c) => unawaited(_read(c)),
+            onContinueConversation: (c) => unawaited(_continue(c)),
             onOpenLink: (card) => unawaited(_openLink(card)),
             footer: appearance.showBranding ? _Branding(theme: theme) : null,
             bottomInset: bottomInset,

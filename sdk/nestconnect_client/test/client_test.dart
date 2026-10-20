@@ -81,6 +81,9 @@ class FakeServer {
   /// The same, for a reaction.
   int? reactStatus;
 
+  /// The same, for switching to another conversation.
+  int? switchStatus;
+
   Future<void> start() async {
     _server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     unawaited(_serve());
@@ -166,6 +169,24 @@ class FakeServer {
           'mime': 'image/jpeg',
           'size': 42,
         });
+      } else if (path.endsWith('/open') && req.method == 'POST') {
+        if (switchStatus != null) {
+          req.response.statusCode = switchStatus!;
+          _json(req, {'message': 'No such open conversation'});
+        } else {
+          _json(req, {
+            'token': 'tok_switched',
+            'hasConversation': true,
+            'messages': [
+              {
+                'id': 'm_dg2',
+                'from': 'visitor',
+                'body': 'Where is order DG-2?',
+                'at': DateTime.now().toIso8601String(),
+              },
+            ],
+          });
+        }
       } else if (path.endsWith('/messages') && req.method == 'GET') {
         _json(req, {'messages': history});
       } else if (path.endsWith('/stream')) {
@@ -633,6 +654,46 @@ void main() {
     await chat.refresh();
     expect(chat.messages, hasLength(1));
     expect(chat.unread, 1);
+  });
+
+  test('tapping another open order moves the session to it', () async {
+    server.session = {...server.session, 'hasConversation': true};
+    await chat.open();
+
+    // A channel with a conversation per order gives a customer several open
+    // at once. The session writes to one, and tapping another used to show
+    // that one instead of the order tapped.
+    await chat.switchTo('conv_dg2');
+    expect(server.requests, contains('POST /api/nestchat/conversations/conv_dg2/open'));
+    expect(chat.messages.map((m) => m.body), ['Where is order DG-2?']);
+
+    // What is sent and heard from now on is that conversation's.
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    expect(server.streamQueries.last['token'], 'tok_switched');
+    await chat.send('Thanks');
+    expect(server.requests.last, 'POST /api/nestchat/message');
+  });
+
+  test('a conversation that can no longer be switched to leaves the session where it was', () async {
+    server.session = {...server.session, 'hasConversation': true};
+    server.history = [
+      {'id': 'm_here', 'from': 'visitor', 'body': 'Still here', 'at': DateTime.now().toIso8601String()},
+    ];
+    await chat.open();
+    await chat.refresh();
+    server.switchStatus = 404;
+    await expectLater(chat.switchTo('conv_closed'), throwsA(isA<NestException>()));
+    expect(chat.messages.map((m) => m.body), ['Still here']);
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    expect(server.streamQueries.last['token'], 'tok_1');
+  });
+
+  test('the conversation list says which one the session is on', () {
+    final rows = [
+      {'id': 'c_1', 'closed': false, 'preview': 'a', 'at': '2026-10-20T10:00:00Z', 'current': true},
+      {'id': 'c_2', 'closed': false, 'preview': 'b', 'at': '2026-10-20T09:00:00Z'},
+    ].map(NestPastConversation.tryParse).whereType<NestPastConversation>().toList();
+    expect(rows.map((r) => r.current), [true, false]);
   });
 
   test('a notification of ours can be told from the app\'s own', () {
