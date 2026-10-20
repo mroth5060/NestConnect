@@ -47,6 +47,7 @@ import { useVoiceRecording, type RecordedVoice } from "../voice";
 import { useToast } from "./Toast";
 import { useTheme } from "../theme";
 import { haptics } from "../haptics";
+import { useShrinkWhenEmpty } from "../shrink-when-empty";
 import {
   AttachIcon,
   BoltIcon,
@@ -147,6 +148,8 @@ export function Composer({
   const toast = useToast();
   const inputRef = useRef<TextInput>(null);
   const [body, setBody] = useState("");
+  // Back to one line once sent (see shrink-when-empty).
+  const bodyBox = useShrinkWhenEmpty(body);
   const [internal, setInternal] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1158,7 +1161,8 @@ export function Composer({
                 : "Message…"
           }
           placeholderTextColor={c.textFaint}
-          style={{ color: c.text, maxHeight: 132 }}
+          onLayout={bodyBox.onLayout}
+          style={[{ color: c.text, maxHeight: 132 }, bodyBox.height]}
           className="flex-1 px-1 py-2 text-lg"
         />
 

@@ -16,6 +16,7 @@ import {
 } from "@ding/client";
 import { CHAT_MESSAGE_MAX, mentionsToNames, namesToHandles, type ChatSharedConversation, type Mentionable } from "@ding/schemas";
 import { haptics } from "../../haptics";
+import { useShrinkWhenEmpty } from "../../shrink-when-empty";
 import { CheckIcon, SearchIcon, SendIcon, TeamChatIcon, channelColor, channelMeta } from "../../icons";
 import { useTheme } from "../../theme";
 import { ActionSheet, type SheetAction } from "../ActionSheet";
@@ -271,6 +272,8 @@ export function DiscussionSheet({
   const people = usePeople();
   const mentionables: Mentionable[] = useMemo(() => (people.data ?? []).map((m) => m.user), [people.data]);
   const [text, setText] = useState("");
+  // Back to one line once sent (see shrink-when-empty).
+  const replyBox = useShrinkWhenEmpty(text);
   const [busy, setBusy] = useState(false);
   const [picking, setPicking] = useState(false);
   const [current, setCurrent] = useState<string | null>(null);
@@ -408,7 +411,8 @@ export function DiscussionSheet({
               placeholderTextColor={c.textFaint}
               multiline
               accessibilityLabel="Reply in the discussion"
-              style={{ color: c.text, backgroundColor: c.surface2, maxHeight: 110 }}
+              onLayout={replyBox.onLayout}
+              style={[{ color: c.text, backgroundColor: c.surface2, maxHeight: 110 }, replyBox.height]}
               className="flex-1 rounded-[22px] px-4 py-2.5 text-lg"
             />
             <Touchable
