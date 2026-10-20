@@ -71,8 +71,9 @@ describe("Team Chat: the thread as rows", () => {
     );
     expect(items.filter((i) => i.kind === "day").map((i) => (i.kind === "day" ? i.label : ""))).toEqual(["Yesterday", "Today"]);
     const runs = items.flatMap((i) => (i.kind === "message" ? [`${i.message.id}:${i.first ? "F" : ""}${i.last ? "L" : ""}`] : []));
-    // 2 and 3 are one run; 4 is 18 minutes later, so it starts another.
-    expect(runs).toEqual(["1:FL", "2:F", "3:L", "4:FL", "5:FL"]);
+    // 2, 3 and 4 are one run: the same person, back to back, on one day — 4
+    // coming 18 minutes later doesn't make it someone new. 1 is the day before.
+    expect(runs).toEqual(["1:FL", "2:F", "3:", "4:L", "5:FL"]);
   });
   it("an unread line before the first message from someone else I haven't read", () => {
     const items = chatItems([msg("1", "amara", at(13, 9)), msg("2", "me", at(13, 10)), msg("3", "amara", at(13, 11)), msg("4", "amara", at(13, 12))], {
