@@ -25,6 +25,7 @@ class NestHomeScreen extends StatelessWidget {
     required this.onStartChat,
     required this.onOpenConversation,
     required this.onOpenLink,
+    this.onContinueConversation,
     this.footer,
     this.bottomInset = 0,
   });
@@ -44,7 +45,13 @@ class NestHomeScreen extends StatelessWidget {
   final bool loadingConversations;
 
   final VoidCallback onStartChat;
+
+  /// A closed conversation, tapped: read it.
   final ValueChanged<NestPastConversation> onOpenConversation;
+
+  /// An open one, tapped: carry on in it. Without this, [onStartChat] — which
+  /// is the session's own conversation, whichever row was tapped.
+  final ValueChanged<NestPastConversation>? onContinueConversation;
   final ValueChanged<NestHomeCard> onOpenLink;
 
   /// "Powered by", under the last card.
@@ -153,7 +160,9 @@ class NestHomeScreen extends StatelessWidget {
                     showStatus: true,
                     onTap: () => conversations[r].closed
                         ? onOpenConversation(conversations[r])
-                        : onStartChat(),
+                        : onContinueConversation != null
+                            ? onContinueConversation!(conversations[r])
+                            : onStartChat(),
                   ),
                 ],
                 const SizedBox(height: 4),

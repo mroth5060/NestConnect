@@ -192,6 +192,46 @@ async function main(): Promise<void> {
     (await nestchat.visitorConversation(claims, "conv_made_up")) === undefined,
   );
 
+  console.log("\nswitching to another of her open conversations\n");
+  /*
+   * A channel with a conversation per order gives her several open at once,
+   * and the home screen lists them all. Tapping another open order used to
+   * show the session's own thread: the session writes to one, and nothing
+   * moved it. Now the session can be moved, to her own open ones only.
+   */
+  const { conversation: order } = await store.findOrCreateOpenConversation({
+    orgId: ORG,
+    inboxId: chat.id,
+    contact: marta,
+    channel: chat.type,
+    startedBy: visitorStamp("visitor_marta"),
+    forceNew: true,
+  });
+  await store.appendInboundMessage(order.id, { authorName: "Marta Nowak", body: "Where is order DG-2?", channel: chat.type });
+  const onLive = { ...claims, conversationId: live };
+  listed = await nestchat.visitorConversations(onLive);
+  ok(
+    "the list says which one the session is on",
+    listed.find((c) => c.id === live)?.current === true && !listed.find((c) => c.id === order.id)?.current,
+    listed.map((c) => `${c.id}${c.current ? " (current)" : ""}`).join(", "),
+  );
+  const moved = await nestchat.switchVisitorConversation(onLive, order.id);
+  ok("switching to her other open order works", Boolean(moved?.token));
+  ok("…and hands back that order's messages", moved?.messages.at(-1)?.body === "Where is order DG-2?", moved?.messages.at(-1)?.body);
+  const movedClaims = moved ? nestchat.verifyVisitorToken(moved.token) : undefined;
+  ok(
+    "…with a token for that conversation, and still her",
+    movedClaims?.conversationId === order.id && movedClaims.contactId === marta.id && movedClaims.visitorId === "visitor_marta",
+  );
+  ok(
+    "and the list now marks that one as current",
+    (await nestchat.visitorConversations(movedClaims!)).find((c) => c.id === order.id)?.current === true,
+  );
+  ok("a closed one can't be switched to — it's read, not written", (await nestchat.switchVisitorConversation(onLive, first)) === undefined);
+  ok("another customer's can't", (await nestchat.switchVisitorConversation(onLive, notHers)) === undefined);
+  ok("nor one on another channel", (await nestchat.switchVisitorConversation(onLive, elsewhere)) === undefined);
+  ok("nor an id that is nothing", (await nestchat.switchVisitorConversation(onLive, "conv_made_up")) === undefined);
+
   console.log("\nsomebody typing her email into a form\n");
   /*
    * A detail typed into the pre-chat form, or the card in the thread, merges

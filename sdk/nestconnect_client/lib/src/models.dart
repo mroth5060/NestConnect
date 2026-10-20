@@ -25,7 +25,7 @@ library;
 /// Kept in step with both pubspecs by tools/check-sdk-version.ts, because a
 /// version constant that drifts from the package it names is worse than none:
 /// it answers the question confidently and wrongly.
-const String nestConnectSdkVersion = '0.6.2';
+const String nestConnectSdkVersion = '0.6.3';
 
 /// How hard the channel checked who you said you were.
 enum NestIdentity {
@@ -456,9 +456,14 @@ class NestPastConversation {
     required this.at,
     this.fromMe = false,
     this.authorName,
+    this.current = false,
   });
 
   final String id;
+
+  /// The one this session is writing to. Another open one is switched to with
+  /// [NestConnect.switchTo] before it can be written in.
+  final bool current;
 
   /// Resolved by the business. Readable, not writable — a new message starts a
   /// new conversation rather than reopening somebody's finished ticket.
@@ -487,6 +492,7 @@ class NestPastConversation {
       fromMe: _str(raw['from']) == 'visitor',
       authorName: _str(raw['authorName']),
       at: DateTime.tryParse(_str(raw['at']) ?? '')?.toLocal() ?? DateTime.now(),
+      current: raw['current'] == true,
     );
   }
 }

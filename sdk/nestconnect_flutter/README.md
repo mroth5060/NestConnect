@@ -148,6 +148,10 @@ showNestMessenger(context, chat: chat, startOnConversation: true);
 
 If you have built your own UI on `NestConnect`, `config?.home` is the cards,
 `conversations()` is the history, and `conversation(id)` reads one of them.
+With a conversation per order, a customer can have several open at once: the
+one marked `current` is the one the session writes to, and `switchTo(id)` moves
+the session to another open one before showing it. The built-in home screen
+does this when an open conversation is tapped.
 
 ## Minimised chat
 

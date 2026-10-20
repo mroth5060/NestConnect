@@ -2208,6 +2208,9 @@ export const nestchatPastConversationSchema = z.object({
   /** Whose reply it was, for the face on the card. */
   authorName: z.string().optional(),
   at: z.string(),
+  /** The one this session is writing to. Tapping another open one switches
+   *  to it (`POST conversations/:id/open`). */
+  current: z.boolean().optional(),
 });
 export type NestChatPastConversation = z.infer<typeof nestchatPastConversationSchema>;
 
