@@ -62,8 +62,6 @@ export function chatPreview(
   return who ? `${who}: ${text}` : text;
 }
 
-/** Messages close enough together from the same person share a run: one name, one tail. */
-const RUN_GAP_MS = 5 * 60_000;
 
 export type ChatItem<M extends ChatMessage = ChatMessage> =
   | { kind: "day"; key: string; label: string }
@@ -99,14 +97,18 @@ export function chatItems<M extends ChatMessage>(
     }
     const prev = messages[i - 1];
     const next = messages[i + 1];
+    // Back to back from the same person, on the same day, is one run however
+    // long they paused: one name at the top, one face and tail at the bottom,
+    // as WhatsApp draws it. A five-minute gap used to start a new run, which
+    // put their face on a message mid-way down and their name on the next, as
+    // if somebody else had come in.
     const joins = (a: M | undefined, b: M | undefined) =>
       !!a &&
       !!b &&
       a.kind === "text" &&
       b.kind === "text" &&
       a.author?.id === b.author?.id &&
-      new Date(a.createdAt).toDateString() === new Date(b.createdAt).toDateString() &&
-      Math.abs(new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) < RUN_GAP_MS;
+      new Date(a.createdAt).toDateString() === new Date(b.createdAt).toDateString();
     out.push({ kind: "message", key: m.id, message: m, first: !joins(prev, m), last: !joins(m, next) });
   });
   return out;
