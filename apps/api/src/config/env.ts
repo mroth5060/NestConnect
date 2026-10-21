@@ -75,8 +75,8 @@ export const env = {
     // (or is faked only when MOCK_MESSAGING=true in dev).
     postmarkToken: process.env.POSTMARK_TOKEN ?? "",
     // Address outbound email is sent from, and the domain used to mint Message-IDs.
-    from: process.env.EMAIL_FROM ?? "support@swiftee.co.uk",
-    domain: process.env.EMAIL_DOMAIN ?? "swiftee.co.uk",
+    from: process.env.EMAIL_FROM ?? "support@hermolis.com",
+    domain: process.env.EMAIL_DOMAIN ?? "hermolis.com",
     // Optional shared secret; when set, inbound webhooks must pass ?token=.
     inboundToken: process.env.EMAIL_INBOUND_TOKEN ?? "",
   },
@@ -99,7 +99,7 @@ export const env = {
   // `from` must be on a domain verified in Resend; falls back to EMAIL_FROM.
   resend: {
     apiKey: process.env.RESEND_API_KEY ?? "",
-    from: process.env.RESEND_FROM ?? process.env.EMAIL_FROM ?? "support@swiftee.co.uk",
+    from: process.env.RESEND_FROM ?? process.env.EMAIL_FROM ?? "support@hermolis.com",
   },
   // Claude (Anthropic) for AI assist — the composer's one-tap Polish. An org's
   // saved Settings values override these, so it can be enabled from the UI.

@@ -14,8 +14,8 @@ import { inboxLabel, sendingInbox, type ChannelType, type InboxIdentity } from "
 
 const wa1: InboxIdentity = { id: "in_wa1", type: "whatsapp", name: "Support", handle: "+44 20 7946 0100" };
 const wa2: InboxIdentity = { id: "in_wa2", type: "whatsapp", name: "Sales", handle: "+44 345 900 0100" };
-const mail1: InboxIdentity = { id: "in_m1", type: "email", name: "support@swiftee.co.uk", handle: "support@swiftee.co.uk" };
-const mail2: InboxIdentity = { id: "in_m2", type: "email", name: "hello@swiftee.co.uk", handle: "hello@swiftee.co.uk" };
+const mail1: InboxIdentity = { id: "in_m1", type: "email", name: "support@hermolis.com", handle: "support@hermolis.com" };
+const mail2: InboxIdentity = { id: "in_m2", type: "email", name: "orders@hermolis.com", handle: "orders@hermolis.com" };
 const ALL = [wa1, wa2, mail1, mail2];
 
 const conv = (inboxId: string, channel: ChannelType) => ({ inboxId, channel });
@@ -105,7 +105,7 @@ describe("when the workspace can't serve the channel", () => {
 
 describe("writing an inbox down in one line", () => {
   it("doesn't say a mailbox twice", () => {
-    expect(inboxLabel(mail1)).toBe("support@swiftee.co.uk");
+    expect(inboxLabel(mail1)).toBe("support@hermolis.com");
   });
 
   it("keeps a name worth having next to a number nobody recognises", () => {

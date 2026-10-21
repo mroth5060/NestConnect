@@ -352,7 +352,7 @@ const CHANNEL_KINDS: ChannelKind[] = [
     label: "NestChat",
     desc: "Our own live chat, embedded on your website. Nothing to connect — it's ours.",
     handleLabel: "Website",
-    handlePlaceholder: "swiftee.co.uk",
+    handlePlaceholder: "hermolis.com",
     // No credentials: there is no third party to authenticate with. The widget
     // key that identifies this channel is minted for us, not pasted in.
     fields: [],
@@ -362,10 +362,10 @@ const CHANNEL_KINDS: ChannelKind[] = [
     label: "Email inbox",
     desc: "A shared mailbox, forwarded into Nest Connect.",
     handleLabel: "Inbox address",
-    handlePlaceholder: "support@swiftee.co.uk",
+    handlePlaceholder: "support@hermolis.com",
     fields: [
       { key: "providerToken", label: "Postmark server token", placeholder: "server-token…", secret: true },
-      { key: "fromName", label: "From name", placeholder: "Swiftee Support", optional: true },
+      { key: "fromName", label: "From name", placeholder: "Hermolis Support", optional: true },
     ],
   },
 ];
@@ -1825,7 +1825,7 @@ function PeoplePane({ onToast }: { onToast: (msg: string) => void }) {
                 </label>
                 <label className="field">
                   <span>Email</span>
-                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane@swiftee.co.uk" required />
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane@hermolis.com" required />
                 </label>
               </div>
               <label className="field">
@@ -2640,7 +2640,7 @@ function NestChatPane({ onToast }: { onToast: (msg: string) => void }) {
                     <input
                       value={draft.app.contactTag}
                       onChange={(e) => setApp("contactTag", e.target.value)}
-                      placeholder="Ding app"
+                      placeholder="Hermolis app"
                       maxLength={40}
                     />
                     <em className="fieldhint">
@@ -4254,7 +4254,7 @@ function ProfileForm({
             type="email"
             autoComplete="off"
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="hello@swiftee.co.uk"
+            placeholder="orders@hermolis.com"
           />
         </label>
       </div>
@@ -4276,7 +4276,7 @@ function ProfileForm({
             value={web1}
             autoComplete="off"
             onChange={(e) => setWeb1(e.target.value)}
-            placeholder="swiftee.co.uk"
+            placeholder="hermolis.com"
           />
         </label>
         <label className="field">

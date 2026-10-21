@@ -107,7 +107,7 @@ export function CreateGroupModal({ onClose, onToast, onSelectView }: Props) {
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="The Ivy House regulars"
+                  placeholder="Maple Road Shul kiddush committee"
                   autoFocus
                   required
                 />

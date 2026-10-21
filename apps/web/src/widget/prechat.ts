@@ -14,7 +14,7 @@ import type { NestChatField, NestChatPreChat, NestChatPublicRouting } from "@din
  * Enough of an email check to catch a typo, and no more.
  *
  * The server validates properly; this exists so a visitor who wrote
- * "nathan@swiftee" is told before they press the button rather than after a
+ * "nathan@hermolis" is told before they press the button rather than after a
  * round trip that comes back as a generic failure.
  */
 export const LOOKS_LIKE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

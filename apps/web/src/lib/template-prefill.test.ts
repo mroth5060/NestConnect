@@ -21,7 +21,7 @@ const CTX: TemplateFillContext = {
   contactPhone: "+44 7700 900123",
   contactEmail: "marta@example.com",
   agentName: "Nathan A",
-  channelName: "Swiftee Support",
+  channelName: "Hermolis Support",
 };
 
 describe("resolving one default", () => {
@@ -35,8 +35,8 @@ describe("resolving one default", () => {
   });
 
   it("mixes text and tokens, which is why there's no type to choose", () => {
-    expect(resolveTemplateDefault("Hi from {{agent.first_name}} at Swiftee", CTX)).toBe(
-      "Hi from Nathan at Swiftee",
+    expect(resolveTemplateDefault("Hi from {{agent.first_name}} at Hermolis", CTX)).toBe(
+      "Hi from Nathan at Hermolis",
     );
   });
 

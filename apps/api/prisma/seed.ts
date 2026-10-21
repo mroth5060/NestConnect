@@ -8,6 +8,8 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
+// Kept from before the Hermolis rebrand — never shown, and renaming it would
+// make an existing database look brand new and seed a second, empty workspace.
 const ORG = "org_swiftee";
 
 /**
@@ -67,7 +69,7 @@ async function main() {
   await prisma.organization.upsert({
     where: { id: ORG },
     update: {},
-    create: { id: ORG, name: "Swiftee", region: "uk" },
+    create: { id: ORG, name: "Hermolis", region: "uk" },
   });
 
   // Legacy fix (runs every deploy; a no-op once migrated): a WhatsApp group used
@@ -90,9 +92,9 @@ async function main() {
   }
 
   const users = [
-    { id: "usr_nathan", name: "Nathan A", email: "nathan@swiftee.co.uk", role: "admin" as const, avatarColor: "linear-gradient(135deg,#3B82F6,#8B5CF6)", online: true },
-    { id: "usr_james", name: "James", email: "james@swiftee.co.uk", role: "agent" as const, avatarColor: "linear-gradient(135deg,#0EA5E9,#22D3EE)", online: true },
-    { id: "usr_amara", name: "Amara", email: "amara@swiftee.co.uk", role: "agent" as const, avatarColor: "linear-gradient(135deg,#F43F5E,#F59E0B)", online: false },
+    { id: "usr_nathan", name: "Nathan A", email: "nathan@hermolis.com", role: "admin" as const, avatarColor: "linear-gradient(135deg,#3B82F6,#8B5CF6)", online: true },
+    { id: "usr_james", name: "James", email: "james@hermolis.com", role: "agent" as const, avatarColor: "linear-gradient(135deg,#0EA5E9,#22D3EE)", online: true },
+    { id: "usr_amara", name: "Amara", email: "amara@hermolis.com", role: "agent" as const, avatarColor: "linear-gradient(135deg,#F43F5E,#F59E0B)", online: false },
   ];
   // Reached only on a first run, so these users do not exist yet. The upsert's
   // `update` deliberately does nothing: it used to reset `passwordHash`, which
@@ -135,8 +137,8 @@ async function main() {
 
   const inboxes = [
     { id: "inbox_wa", type: "whatsapp" as const, name: "+44 20 7946", handle: "+44 20 7946 0100", routing: "manual" as const, teams: ["team_support"] },
-    { id: "inbox_support", type: "email" as const, name: "support@swiftee.co.uk", handle: "support@swiftee.co.uk", routing: "round_robin" as const, teams: ["team_support"] },
-    { id: "inbox_hello", type: "email" as const, name: "hello@swiftee.co.uk", handle: "hello@swiftee.co.uk", routing: "round_robin" as const, teams: ["team_sales"] },
+    { id: "inbox_support", type: "email" as const, name: "support@hermolis.com", handle: "support@hermolis.com", routing: "round_robin" as const, teams: ["team_support"] },
+    { id: "inbox_hello", type: "email" as const, name: "orders@hermolis.com", handle: "orders@hermolis.com", routing: "round_robin" as const, teams: ["team_sales"] },
   ];
   for (const i of inboxes) {
     await prisma.inbox.upsert({
@@ -167,7 +169,7 @@ async function main() {
   // Pre-approved WhatsApp templates for replying once a 24-hour window closes.
   const templates = [
     { id: "tpl_order_update", name: "order_update", category: "utility", body: "Hi {{1}}, your order {{2}} is on its way and should arrive by {{3}}. Reply here if you need anything!" },
-    { id: "tpl_appointment_reminder", name: "appointment_reminder", category: "utility", body: "Hi {{1}}, a quick reminder of your appointment on {{2}} at {{3}}. Reply here to reschedule." },
+    { id: "tpl_appointment_reminder", name: "appointment_reminder", category: "utility", body: "Hi {{1}}, a quick reminder of your menu tasting on {{2}} at {{3}}. Reply here to reschedule." },
     { id: "tpl_payment_reminder", name: "payment_reminder", category: "utility", body: "Hi {{1}}, invoice {{2}} for {{3}} is now due. You can reply here with any questions." },
     { id: "tpl_welcome_back", name: "welcome_back", category: "marketing", body: "Hi {{1}} 👋 It's been a little while — reply here and we'll pick up right where we left off." },
   ];
@@ -183,55 +185,55 @@ async function main() {
   // produces): a letterhead image blocked as a remote src, a greeting and a list.
   const tideEmailHtml = `<div style="font-family:Arial,Helvetica,sans-serif;color:#22303a">
   <div style="background:#0ea5e9;padding:16px 20px;border-radius:8px 8px 0 0">
-    <h2 style="margin:0;color:#ffffff;font-size:18px">Tide &amp; Co. — New Supplier Onboarding</h2>
-    <p style="margin:4px 0 0;color:#e0f4ff;font-size:13px">Wholesale · Cardiff</p>
+    <h2 style="margin:0;color:#ffffff;font-size:18px">Shefa Fresh Produce — New Supplier Onboarding</h2>
+    <p style="margin:4px 0 0;color:#e0f4ff;font-size:13px">Fresh produce · London E5</p>
   </div>
-  <img data-blocked-src="https://cdn.example.com/tide/letterhead.png" alt="Tide &amp; Co." width="560" style="width:100%;max-width:560px;display:block">
+  <img data-blocked-src="https://cdn.example.com/shefa/letterhead.png" alt="Shefa Fresh Produce" width="560" style="width:100%;max-width:560px;display:block">
   <div style="padding:14px 20px">
-    <p>Hello Swiftee team,</p>
+    <p>Hello Hermolis team,</p>
     <p>We're getting set up as a <b>new supplier</b> and had a few questions before our first delivery:</p>
     <ul style="padding-left:20px;margin:10px 0">
-      <li>What delivery windows do you offer for Cardiff?</li>
-      <li>Is there a cut-off time for next-day orders?</li>
+      <li>Which hechsher do you need on our produce and paperwork?</li>
+      <li>Is there a cut-off time for deliveries before Shabbat and Yom Tov?</li>
       <li>Can we consolidate multiple POs into one drop?</li>
     </ul>
     <p style="margin:14px 0">
-      <a href="https://swiftee.co.uk/suppliers/tide" target="_blank" rel="noopener noreferrer nofollow" style="background:#0ea5e9;color:#ffffff;padding:9px 16px;border-radius:6px;text-decoration:none;font-weight:bold">Supplier portal</a>
+      <a href="https://hermolis.com/suppliers/shefa" target="_blank" rel="noopener noreferrer nofollow" style="background:#0ea5e9;color:#ffffff;padding:9px 16px;border-radius:6px;text-decoration:none;font-weight:bold">Supplier portal</a>
     </p>
-    <p style="color:#667;font-size:13px;margin-top:16px">Many thanks,<br>The Tide &amp; Co. team</p>
+    <p style="color:#667;font-size:13px;margin-top:16px">Many thanks,<br>The Shefa Fresh Produce team</p>
   </div>
 </div>`;
 
   // A representative set of contacts + conversations + messages.
   const seedConversations = [
     {
-      contact: { id: "ct_ivy", displayName: "The Ivy House", company: "Venue · Bristol", avatarColor: "linear-gradient(135deg,#F97316,#DB2777)", phone: "+44 117 496 0122", email: "ops@theivyhouse.co.uk", tags: ["Key account", "Events"] },
-      conv: { id: "conv_ivy", inboxId: "inbox_wa", channel: "whatsapp_group" as const, subject: null as string | null, status: "open" as const, assigneeUserId: "usr_nathan", assignedTeamId: "team_support", priority: "high" as const, unread: true, unreadCount: 2, slaDueAt: mins(-72), preview: "James · Swiftee: 5pm works — re-slotting now 👍" },
+      contact: { id: "ct_ivy", displayName: "Maple Road Shul", company: "Synagogue · London NW11", avatarColor: "linear-gradient(135deg,#F97316,#DB2777)", phone: "+44 20 8455 0122", email: "office@mapleroadshul.org.uk", tags: ["Key account", "Kiddush"] },
+      conv: { id: "conv_ivy", inboxId: "inbox_wa", channel: "whatsapp_group" as const, subject: null as string | null, status: "open" as const, assigneeUserId: "usr_nathan", assignedTeamId: "team_support", priority: "high" as const, unread: true, unreadCount: 2, slaDueAt: mins(-72), preview: "James · Hermolis: 11am works — re-slotting now 👍" },
       labels: ["lbl_vip", "lbl_delivery"],
       // Spans 2 days ago → yesterday → today so the date dividers roll over.
       messages: [
-        { direction: "in" as const, authorType: "contact" as const, authorName: "Priya (The Ivy House)", body: "Morning! Are we still on for the linen drop this week?", internal: false, createdAt: dayAt(2, 9, 2) },
-        { direction: "out" as const, authorType: "user" as const, authorName: "Nathan A", authorUserId: "usr_nathan", body: "Morning Priya 👋 Yes — you're booked in. I'll confirm the slot shortly.", internal: false, createdAt: dayAt(2, 9, 8) },
-        { direction: "in" as const, authorType: "contact" as const, authorName: "Priya (The Ivy House)", body: "Amazing. One change — could we push it to 5pm? We've got a lunch service running.", internal: false, createdAt: dayAt(1, 13, 20) },
-        { direction: "out" as const, authorType: "user" as const, authorName: "James", authorUserId: "usr_james", body: "@nathan can the Bristol route take a 5pm slot for the Ivy House? Lunch clash their end.", internal: true, createdAt: dayAt(1, 13, 24) },
-        { direction: "in" as const, authorType: "contact" as const, authorName: "James · Swiftee", body: "Yep, 5pm works — I'll re-slot the route now. 👍", internal: false, createdAt: mins(35) },
+        { direction: "in" as const, authorType: "contact" as const, authorName: "Miriam (Maple Road Shul)", body: "Morning! Are we still on for the kiddush delivery this Friday?", internal: false, createdAt: dayAt(2, 9, 2) },
+        { direction: "out" as const, authorType: "user" as const, authorName: "Nathan A", authorUserId: "usr_nathan", body: "Morning Miriam 👋 Yes — you're booked in. I'll confirm the slot shortly.", internal: false, createdAt: dayAt(2, 9, 8) },
+        { direction: "in" as const, authorType: "contact" as const, authorName: "Miriam (Maple Road Shul)", body: "Amazing. One change — could you bring it forward to 11am? Shabbat comes in early this week.", internal: false, createdAt: dayAt(1, 13, 20) },
+        { direction: "out" as const, authorType: "user" as const, authorName: "James", authorUserId: "usr_james", body: "@nathan can the NW London van take an 11am Friday drop for the shul? Early Shabbat their end.", internal: true, createdAt: dayAt(1, 13, 24) },
+        { direction: "in" as const, authorType: "contact" as const, authorName: "James · Hermolis", body: "Yep, 11am works — I'll re-slot the van now. 👍", internal: false, createdAt: mins(35) },
       ],
     },
     {
-      contact: { id: "ct_north", displayName: "Northside Logistics", company: "Logistics · Leeds", avatarColor: "linear-gradient(135deg,#0EA5E9,#2563EB)", phone: "+44 113 555 0148", email: "accounts@northside.io", tags: ["Wholesale", "Net-30"] },
-      conv: { id: "conv_north", inboxId: "inbox_wa", channel: "whatsapp" as const, subject: null as string | null, status: "open" as const, assigneeUserId: null, assignedTeamId: "team_support", priority: "normal" as const, unread: true, unreadCount: 3, slaDueAt: mins(40), preview: "Invoice #4471 — is this the right VAT rate?" },
+      contact: { id: "ct_north", displayName: "Northwood Care Home", company: "Care home · London HA6", avatarColor: "linear-gradient(135deg,#0EA5E9,#2563EB)", phone: "+44 20 3555 0148", email: "accounts@northwoodcare.co.uk", tags: ["Contract", "Net-30"] },
+      conv: { id: "conv_north", inboxId: "inbox_wa", channel: "whatsapp" as const, subject: null as string | null, status: "open" as const, assigneeUserId: null, assignedTeamId: "team_support", priority: "normal" as const, unread: true, unreadCount: 3, slaDueAt: mins(40), preview: "Invoice #4471 — is the VAT right on the cold food?" },
       labels: ["lbl_billing"],
       messages: [
-        { direction: "in" as const, authorType: "contact" as const, authorName: "Northside Logistics", body: "Hi team — is the VAT rate on invoice #4471 right? We're zero-rated on transport.", internal: false, createdAt: dayAt(1, 16, 12) },
-        { direction: "in" as const, authorType: "contact" as const, authorName: "Northside Logistics", body: "No rush, just before month end 🙏", internal: false, createdAt: mins(180) },
+        { direction: "in" as const, authorType: "contact" as const, authorName: "Northwood Care Home", body: "Hi team — is the VAT right on invoice #4471? It's 20% on the whole lot, but most of it is cold food.", internal: false, createdAt: dayAt(1, 16, 12) },
+        { direction: "in" as const, authorType: "contact" as const, authorName: "Northwood Care Home", body: "No rush, just before month end 🙏", internal: false, createdAt: mins(180) },
       ],
     },
     {
-      contact: { id: "ct_tide", displayName: "Tide & Co.", company: "Wholesale · Cardiff", avatarColor: "linear-gradient(135deg,#14B8A6,#0EA5E9)", phone: "+44 29 2055 0166", email: "team@tideandco.com", tags: ["Wholesale", "New lead"] },
-      conv: { id: "conv_tide", inboxId: "inbox_support", channel: "email" as const, subject: "New supplier onboarding" as string | null, status: "open" as const, assigneeUserId: null, assignedTeamId: "team_support", priority: "normal" as const, unread: true, unreadCount: 1, slaDueAt: mins(165), preview: "New supplier onboarding — a few questions" },
+      contact: { id: "ct_tide", displayName: "Shefa Fresh Produce", company: "Supplier · London E5", avatarColor: "linear-gradient(135deg,#14B8A6,#0EA5E9)", phone: "+44 20 8555 0166", email: "team@shefafresh.co.uk", tags: ["Supplier", "New lead"] },
+      conv: { id: "conv_tide", inboxId: "inbox_support", channel: "email" as const, subject: "New supplier onboarding" as string | null, status: "open" as const, assigneeUserId: null, assignedTeamId: "team_support", priority: "normal" as const, unread: true, unreadCount: 1, slaDueAt: mins(165), preview: "New supplier onboarding — hechsher and delivery questions" },
       labels: ["lbl_onboarding"],
       messages: [
-        { direction: "in" as const, authorType: "contact" as const, authorName: "Tide & Co.", body: "Hello! We're getting set up as a new supplier and had a few questions about delivery windows.", internal: false, createdAt: mins(92), bodyHtml: tideEmailHtml },
+        { direction: "in" as const, authorType: "contact" as const, authorName: "Shefa Fresh Produce", body: "Hello! We're getting set up as a new supplier and had a few questions about your hechsher requirements and delivery windows.", internal: false, createdAt: mins(92), bodyHtml: tideEmailHtml },
       ],
     },
   ];
@@ -316,7 +318,7 @@ async function main() {
     });
   }
 
-  // One-time demo enrichment: give the pre-seeded Tide email its rich HTML body
+  // One-time demo enrichment: give the pre-seeded supplier email its rich HTML body
   // so the HTML-email feature is visible even on databases seeded before it
   // existed. Idempotent + scoped to the demo message, so real mail is untouched.
   await prisma.message.updateMany({
@@ -324,7 +326,7 @@ async function main() {
     data: { bodyHtml: tideEmailHtml },
   });
 
-  console.log("✓ Seeded Swiftee org, users, teams, inboxes, and demo conversations.");
+  console.log("✓ Seeded Hermolis org, users, teams, inboxes, and demo conversations.");
 }
 
 main()

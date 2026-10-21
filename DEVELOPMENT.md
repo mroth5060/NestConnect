@@ -97,8 +97,8 @@ with `@Public()` marking login, `/health`, and the channel webhooks. The
 `AuthService` is the seam where SSO (WorkOS/Clerk) drops in later.
 
 - **Sign in** with any seeded user, password `ding1234` (set via
-  `AUTH_DEV_PASSWORD`): `nathan@swiftee.co.uk` (admin), `james@swiftee.co.uk`,
-  `amara@swiftee.co.uk`.
+  `AUTH_DEV_PASSWORD`): `nathan@hermolis.com` (admin), `james@hermolis.com`,
+  `amara@hermolis.com`.
 - Endpoints: `POST /api/auth/login`, `POST /api/auth/logout`,
   `GET /api/auth/session`.
 - The web app gates on `GET /api/auth/session` — unauthenticated shows the login
@@ -185,9 +185,9 @@ guarded by `?token=EMAIL_INBOUND_TOKEN`).
 
 ```bash
 # inbound email → lands in the support@ shared inbox, routed to a team
-node tools/simulate-email.mjs "sam@acme.co.uk" "Sam Rivera" "support@swiftee.co.uk" "Quote request" "Can you quote weekly collections?"
+node tools/simulate-email.mjs "sam@acme.co.uk" "Sam Rivera" "support@hermolis.com" "Quote request" "Can you quote weekly collections?"
 
 # reply from the app, then simulate the customer's threaded follow-up by
 # passing the reply's Message-ID (its channelMsgId):
-node tools/simulate-email.mjs "sam@acme.co.uk" "Sam Rivera" "support@swiftee.co.uk" "Re: Quote request" "One more thing…" --in-reply-to "<ding.conv_x.123@swiftee.co.uk>"
+node tools/simulate-email.mjs "sam@acme.co.uk" "Sam Rivera" "support@hermolis.com" "Re: Quote request" "One more thing…" --in-reply-to "<ding.conv_x.123@hermolis.com>"
 ```

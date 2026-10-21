@@ -32,7 +32,7 @@ export class PolishUnavailableError extends Error {
 
 /**
  * AI assist. One capability today: Polish, which turns an agent's shorthand
- * draft into the finished reply — elaborating it and putting it in Swiftee's
+ * draft into the finished reply — elaborating it and putting it in Hermolis's
  * voice, with the recent thread as context so it reads as an answer to what was
  * actually asked.
  *
