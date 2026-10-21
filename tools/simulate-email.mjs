@@ -4,10 +4,10 @@
  * No dependencies — uses Node's global fetch (Node 18+).
  *
  * New email:
- *   node tools/simulate-email.mjs "sam@acme.co.uk" "Sam Rivera" "support@swiftee.co.uk" "Quote request" "Hi, can you quote weekly collections?"
+ *   node tools/simulate-email.mjs "sam@acme.co.uk" "Sam Rivera" "support@hermolis.com" "Quote request" "Hi, can you quote weekly collections?"
  *
  * Threaded reply (pass the Message-ID of a prior message in the thread):
- *   node tools/simulate-email.mjs "sam@acme.co.uk" "Sam Rivera" "support@swiftee.co.uk" "Re: Quote request" "One more question…" --in-reply-to "<ding.conv_x.123@swiftee.co.uk>"
+ *   node tools/simulate-email.mjs "sam@acme.co.uk" "Sam Rivera" "support@hermolis.com" "Re: Quote request" "One more question…" --in-reply-to "<ding.conv_x.123@hermolis.com>"
  *
  * Env: DING_API (default http://localhost:3001), EMAIL_INBOUND_TOKEN (optional)
  */
@@ -25,7 +25,7 @@ if (idx >= 0) {
 const [
   from = "sam@acme.co.uk",
   name = "Sam Rivera",
-  to = "support@swiftee.co.uk",
+  to = "support@hermolis.com",
   subject = "Quote request",
   text = "Hi, could you quote for weekly collections?",
 ] = args;

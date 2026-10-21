@@ -26,6 +26,13 @@ import {
 } from "../channels/google/google-oauth.service";
 import { googlePushEndpoint, googleRedirectUri } from "../channels/google/redirect-uri";
 import {
+  MicrosoftOAuthService,
+  MICROSOFT_CLIENT_ID_KEY,
+  MICROSOFT_CLIENT_SECRET_KEY,
+  MICROSOFT_TENANT_ID_KEY,
+} from "../channels/microsoft/microsoft-oauth.service";
+import { microsoftRedirectUri } from "../channels/microsoft/redirect-uri";
+import {
   MetaOAuthService,
   META_APP_ID_KEY,
   META_APP_SECRET_KEY,
@@ -74,6 +81,7 @@ export class IntegrationsController {
   constructor(
     private readonly store: Store,
     private readonly google: GoogleOAuthService,
+    private readonly microsoft: MicrosoftOAuthService,
     private readonly meta: MetaOAuthService,
     private readonly mailer: Mailer,
   ) {}
@@ -101,6 +109,14 @@ export class IntegrationsController {
     // The Pub/Sub topic is written whenever supplied, including empty to clear it.
     if (body.googlePubsubTopic !== undefined) {
       await this.store.setAppSetting(me.orgId, GOOGLE_PUBSUB_TOPIC_KEY, body.googlePubsubTopic.trim());
+    }
+    // Microsoft (Outlook / Microsoft 365) app registration.
+    const msClientId = body.microsoftClientId?.trim();
+    if (msClientId) await this.store.setAppSetting(me.orgId, MICROSOFT_CLIENT_ID_KEY, msClientId);
+    const msClientSecret = body.microsoftClientSecret?.trim();
+    if (msClientSecret) await this.store.setAppSetting(me.orgId, MICROSOFT_CLIENT_SECRET_KEY, msClientSecret);
+    if (body.microsoftTenantId !== undefined) {
+      await this.store.setAppSetting(me.orgId, MICROSOFT_TENANT_ID_KEY, body.microsoftTenantId.trim());
     }
     // Meta (WhatsApp) app credentials.
     const metaAppId = body.metaAppId?.trim();
@@ -188,6 +204,9 @@ export class IntegrationsController {
       resend,
       anthropic,
       push,
+      msClientId,
+      msTenantId,
+      msConfigured,
     ] = await Promise.all([
         this.google.clientId(orgId),
         this.google.configured(orgId),
@@ -200,6 +219,9 @@ export class IntegrationsController {
         resendPublicSettings(this.store, orgId),
         anthropicPublicSettings(this.store, orgId),
         pushPublicSettings(this.store, orgId),
+        this.microsoft.clientId(orgId),
+        this.microsoft.tenantId(orgId),
+        this.microsoft.configured(orgId),
       ]);
     return {
       google: {
@@ -208,6 +230,12 @@ export class IntegrationsController {
         redirectUri: googleRedirectUri(req),
         pubsubTopic: pubsubTopic ?? "",
         pushEndpoint: googlePushEndpoint(req),
+      },
+      microsoft: {
+        clientId: msClientId,
+        tenantId: msTenantId,
+        configured: msConfigured,
+        redirectUri: microsoftRedirectUri(req),
       },
       meta: {
         appId: metaAppId,

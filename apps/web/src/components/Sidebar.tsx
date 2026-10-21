@@ -136,7 +136,7 @@ export function Sidebar({ view, onSelectView, onSelectConversation, onClose, onO
         <span className="wordmark">
           Nest <span className="dot">Connect</span>
         </span>
-        <span className="side__sub">Swiftee</span>
+        <span className="side__sub">Hermolis</span>
         {onToggleCollapse && (
           <button
             className="side__collapse"

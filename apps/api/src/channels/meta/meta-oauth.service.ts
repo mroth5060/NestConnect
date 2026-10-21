@@ -138,7 +138,7 @@ export class MetaOAuthService {
    */
   async discoverNumber(accessToken: string): Promise<DiscoveredNumber> {
     if (this.isMock) {
-      return { wabaId: "waba_mock", phoneNumberId: "pn_mock", displayNumber: "+44 20 7946 0999", verifiedName: "Swiftee" };
+      return { wabaId: "waba_mock", phoneNumberId: "pn_mock", displayNumber: "+44 20 7946 0999", verifiedName: "Hermolis" };
     }
     const businesses = await this.fetchJson<{ data?: Array<{ id: string }> }>(
       `${GRAPH}/me/businesses?access_token=${encodeURIComponent(accessToken)}`,

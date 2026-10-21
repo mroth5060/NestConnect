@@ -211,7 +211,7 @@ function CustomerModal({
           <div className="setform__grid two">
             <label className="field">
               <span>Name</span>
-              <input value={displayName} autoFocus onChange={(e) => setName(e.target.value)} placeholder="The Ivy House" required />
+              <input value={displayName} autoFocus onChange={(e) => setName(e.target.value)} placeholder="Maple Road Shul" required />
             </label>
             <label className="field">
               <span>Company / label <em>optional</em></span>

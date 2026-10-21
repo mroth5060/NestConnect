@@ -313,6 +313,8 @@ export const api = {
   aiModels: () => get<{ models: { id: string; name: string }[]; error?: string }>("/ai/models"),
   // pull-to-refresh: fetch any new Gmail on demand
   syncGmail: () => post<{ ok: boolean; synced: number }>("/channels/google/sync", {}),
+  // …and any new Outlook / Microsoft 365 mail
+  syncOutlook: () => post<{ ok: boolean; synced: number }>("/channels/microsoft/sync", {}),
   // customers (CRM)
   contacts: () => get<Contact[]>("/contacts"),
   contactDuplicates: () => get<ContactDuplicateGroup[]>("/contacts/duplicates"),

@@ -1,6 +1,6 @@
 # Nest Connect — omnichannel comms platform
 
-> A sleek, WhatsApp-native team inbox used across our businesses (**Ding**, **Swiftee**, …). Unifies **WhatsApp Business** (1:1 and small client **groups**), **shared email inboxes**, teams, routing, and (later) workflows — with realtime, multiplayer UX. Each business runs as its own organization (tenant) inside Nest Connect.
+> A sleek, WhatsApp-native team inbox set up for **Hermolis** — kosher food and catering. Unifies **WhatsApp Business** (1:1 and small client **groups**), **shared email inboxes**, teams, routing, and (later) workflows — with realtime, multiplayer UX. Each business runs as its own organization (tenant) inside Nest Connect.
 >
 > _The name nods to the **NestJS** backend that powers it — a shared "nest" where every business's conversations connect._
 
@@ -16,7 +16,7 @@ See **[DEVELOPMENT.md](DEVELOPMENT.md)** for the dev guide and the Postgres/Redi
 
 ## The 60-second summary
 
-Nest Connect is a **team inbox** in the family of Front / Missive / Intercom / Chatwoot, but **WhatsApp-first** and built for Swiftee's way of working: every client conversation — whether it arrives on WhatsApp, in a WhatsApp group, or by email — lands in one fast, modern app where the right person or team picks it up.
+Nest Connect is a **team inbox** in the family of Front / Missive / Intercom / Chatwoot, but **WhatsApp-first** and built for Hermolis's way of working: every client conversation — whether it arrives on WhatsApp, in a WhatsApp group, or by email — lands in one fast, modern app where the right person or team picks it up.
 
 **Two things make it "ours" and not a clone:**
 1. **A two-section sidebar** — a personal **My Inbound** space (what's assigned to me + inbound my team hasn't picked up yet) sitting above **Shared Inboxes** (team-owned WhatsApp numbers, group spaces and email addresses you can create and route on the fly).

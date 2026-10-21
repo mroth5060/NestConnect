@@ -35,6 +35,7 @@ const SECRET_CHANNEL_FIELDS = new Set([
 /** AppSetting keys that hold secrets (see google/meta oauth + r2 config). */
 const SECRET_APP_KEYS = new Set([
   "google_client_secret",
+  "microsoft_client_secret",
   "meta_app_secret",
   "r2_access_key_id",
   "r2_secret_access_key",

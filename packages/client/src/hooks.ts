@@ -1298,8 +1298,9 @@ export function useSnoozeSweep() {
  * the open thread refresh instantly — across every connected client/tab.
  */
 /**
- * On-demand refresh (pull-to-refresh / refresh button): pull any new Gmail now,
- * then refetch the lists. Best-effort — a failed Gmail sync (or no Gmail inbox)
+ * On-demand refresh (pull-to-refresh / refresh button): pull any new Gmail and
+ * Outlook mail now, then refetch the lists. Best-effort — a failed sync (or no
+ * such inbox)
  * still refreshes the conversation lists. `refreshing` drives the spinner.
  */
 export function useRefresh() {
@@ -1308,7 +1309,10 @@ export function useRefresh() {
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await api.syncGmail().catch(() => undefined);
+      await Promise.all([
+        api.syncGmail().catch(() => undefined),
+        api.syncOutlook().catch(() => undefined),
+      ]);
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["conversations"] }),
         qc.invalidateQueries({ queryKey: ["conversation"] }),

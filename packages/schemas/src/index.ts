@@ -167,7 +167,7 @@ export function sendingInbox<T extends InboxIdentity>(
 /**
  * How to write an inbox down in one line.
  *
- * A mailbox usually names itself — `support@swiftee.co.uk` is both the name and
+ * A mailbox usually names itself — `orders@hermolis.com` is both the name and
  * the handle — and printing that twice with a separator between looks like a
  * bug. A number usually has a name worth keeping ("Sales") next to a handle
  * nobody recognises without it.
@@ -893,7 +893,7 @@ export const TEMPLATE_TOKENS = [
   { token: "contact.email", label: "Customer email", sample: "marta@example.com" },
   { token: "agent.name", label: "Your name", sample: "Nathan A" },
   { token: "agent.first_name", label: "Your first name", sample: "Nathan" },
-  { token: "channel.name", label: "Number this is sent from", sample: "Swiftee Support" },
+  { token: "channel.name", label: "Number this is sent from", sample: "Hermolis Support" },
 ] as const;
 
 export type TemplateToken = (typeof TEMPLATE_TOKENS)[number]["token"];
@@ -2949,6 +2949,16 @@ export const integrationSettingsSchema = z.object({
     /** The URL to register as the Pub/Sub push subscription endpoint. */
     pushEndpoint: z.string(),
   }),
+  /** The org's Microsoft Entra ID app registration, for Outlook / Microsoft 365
+   *  mailboxes. Same shape as Google's: the secret is write-only. */
+  microsoft: z.object({
+    clientId: z.string(),
+    /** Directory (tenant) id; empty means any work or school account. */
+    tenantId: z.string(),
+    configured: z.boolean(),
+    /** The exact URL to add as a Web Redirect URI on the app registration. */
+    redirectUri: z.string(),
+  }),
   meta: z.object({
     appId: z.string(),
     configured: z.boolean(),
@@ -3015,17 +3025,19 @@ export type IntegrationSettings = z.infer<typeof integrationSettingsSchema>;
  *  tuned per workspace. The constraints are the feature: Polish rewrites HOW
  *  something is said, never WHAT is said. It must not answer the customer,
  *  invent facts (dates, prices, promises), or drop anything the agent wrote. */
-export const DEFAULT_POLISH_PROMPT = `You improve a Swiftee support agent's draft reply before they send it.
+export const DEFAULT_POLISH_PROMPT = `You improve a Hermolis support agent's draft reply before they send it. Hermolis is a kosher food and catering business: its customers order meals, platters and event catering — for homes, shuls, schools, care homes, simchas and corporate events — and ask about deliveries, menus, invoices and kashrut.
 
 You are given the recent conversation for context, then the agent's draft. Rewrite the draft into a message that is ready to send.
 
 Do this:
 - Elaborate. A draft is usually shorthand — turn it into a proper reply: full sentences, the natural connecting words, and phrasing that reads as an answer to what the customer actually asked.
 - Use the conversation only to understand the situation — who they are, what they asked, what has already been said — so the reply lands in context and doesn't repeat what's been covered.
-- Write in Swiftee's voice: professional and competent, but warm and human. British English. Direct and specific. Contractions are fine. No corporate filler ("we appreciate your patience at this time"), no grovelling, no exclamation-mark enthusiasm.
+- Write in Hermolis's voice: professional and competent, but warm and human. British English. Direct and specific. Contractions are fine. No corporate filler ("we appreciate your patience at this time"), no grovelling, no exclamation-mark enthusiasm.
 
 Never do this:
 - Never invent facts. No prices, dates, times, order numbers, names, links, policies, refunds, discounts or promises that aren't in the agent's draft or in the conversation. If the draft doesn't say when something will arrive, neither does your reply.
+- Never add or change anything about kashrut, supervision, hechsher, meat/dairy/parev status, ingredients or allergens. These are commitments a customer may rely on for religious or medical reasons — if the draft doesn't state it, neither does your reply.
+- Keep Jewish and kosher terms (Shabbat, Yom Tov, kiddush, simcha, parev, mashgiach, hechsher and the like) exactly as the agent wrote them — never translate, "correct" or anglicise them.
 - Never answer for the agent. If the draft leaves something the customer asked unaddressed, leave it unaddressed — elaborating a draft is not continuing the conversation.
 - Never change the meaning or the level of commitment: a "no" stays a no, a "maybe" stays a maybe, "I'll check" stays "I'll check".
 - Never drop anything the agent wrote.
@@ -3041,6 +3053,10 @@ export const updateIntegrationSettingsInputSchema = z.object({
   googleClientId: z.string().optional(),
   googleClientSecret: z.string().optional(),
   googlePubsubTopic: z.string().optional(),
+  microsoftClientId: z.string().optional(),
+  microsoftClientSecret: z.string().optional(),
+  /** Written whenever supplied; empty clears it back to "organizations". */
+  microsoftTenantId: z.string().optional(),
   metaAppId: z.string().optional(),
   metaAppSecret: z.string().optional(),
   metaConfigId: z.string().optional(),

@@ -148,9 +148,9 @@ describe("nestchat appearance", () => {
   });
 
   it("merges a patch over what is stored without blanking the rest", () => {
-    const stored = nestchatAppearanceSchema.parse({ title: "Swiftee support" });
+    const stored = nestchatAppearanceSchema.parse({ title: "Hermolis support" });
     const merged = nestchatAppearanceSchema.parse({ ...stored, greeting: "Ask us anything." });
-    expect(merged.title).toBe("Swiftee support");
+    expect(merged.title).toBe("Hermolis support");
     expect(merged.greeting).toBe("Ask us anything.");
     expect(merged.placeholder).toBe(DEFAULT_NESTCHAT_APPEARANCE.placeholder);
   });
