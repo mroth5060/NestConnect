@@ -11,6 +11,7 @@ import { env } from "../config/env";
 import { Store } from "../data/store";
 import { OutboundDeliveryService, type DeliveryJob } from "../channels/outbound-delivery.service";
 import { GmailSyncService } from "../channels/google/gmail-sync.service";
+import { OutlookSyncService } from "../channels/microsoft/outlook-sync.service";
 import { OutboundQueue } from "./outbound-queue";
 
 const QUEUE_NAME = "outbound";
@@ -20,6 +21,7 @@ const DELIVERY_ATTEMPTS = 6;
 const BACKOFF_MS = 3000;
 const SWEEP_JOB = "recover-sweep";
 const GMAIL_JOB = "gmail-poll";
+const OUTLOOK_JOB = "outlook-poll";
 /** Mock-mode tick timings for the delivered/read ladder. */
 const MOCK_DELIVERED_MS = 1400;
 const MOCK_READ_MS = 3200;
@@ -50,6 +52,7 @@ export class BullOutboundQueue
     private readonly delivery: OutboundDeliveryService,
     private readonly store: Store,
     private readonly gmail: GmailSyncService,
+    private readonly outlook: OutlookSyncService,
   ) {
     super();
     // BullMQ requires maxRetriesPerRequest: null on its Redis connection.
@@ -89,6 +92,19 @@ export class BullOutboundQueue
       );
       this.logger.log("Gmail polling scheduled as a repeatable queue job");
     }
+    if (!this.outlook.isPollingDisabled) {
+      await this.queue.add(
+        OUTLOOK_JOB,
+        {},
+        {
+          repeat: { every: Math.max(15, env.outlook.pollSeconds) * 1000 },
+          jobId: OUTLOOK_JOB,
+          removeOnComplete: true,
+          removeOnFail: true,
+        },
+      );
+      this.logger.log("Outlook polling scheduled as a repeatable queue job");
+    }
     this.logger.log("BullMQ outbound queue ready");
   }
 
@@ -115,6 +131,9 @@ export class BullOutboundQueue
         return;
       case GMAIL_JOB:
         await this.gmail.syncAll({ skipPushCovered: true });
+        return;
+      case OUTLOOK_JOB:
+        await this.outlook.syncAll();
         return;
     }
   }

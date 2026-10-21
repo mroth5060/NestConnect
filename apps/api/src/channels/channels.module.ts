@@ -20,6 +20,10 @@ import { GoogleOAuthService } from "./google/google-oauth.service";
 import { GoogleController } from "./google/google.controller";
 import { GmailProvider } from "./google/gmail.provider";
 import { GmailSyncService } from "./google/gmail-sync.service";
+import { MicrosoftOAuthService } from "./microsoft/microsoft-oauth.service";
+import { MicrosoftController } from "./microsoft/microsoft.controller";
+import { OutlookProvider } from "./microsoft/outlook.provider";
+import { OutlookSyncService } from "./microsoft/outlook-sync.service";
 import { MetaOAuthService } from "./meta/meta-oauth.service";
 import { MetaController } from "./meta/meta.controller";
 import { CustomerPushService } from "./nestchat/customer-push.service";
@@ -38,6 +42,7 @@ import { IntegrationsController } from "../settings/integrations.controller";
     EmailController,
     GroupsController,
     GoogleController,
+    MicrosoftController,
     MetaController,
     NestChatController,
     NestChatAdminController,
@@ -49,6 +54,7 @@ import { IntegrationsController } from "../settings/integrations.controller";
     WhatsAppGroupsProvider,
     EmailProvider,
     GmailProvider,
+    OutlookProvider,
     NestChatProvider,
     {
       provide: CHANNEL_PROVIDERS,
@@ -56,9 +62,10 @@ import { IntegrationsController } from "../settings/integrations.controller";
         wa: WhatsAppCloudProvider,
         email: EmailProvider,
         gmailProvider: GmailProvider,
+        outlookProvider: OutlookProvider,
         nestchat: NestChatProvider,
-      ) => [wa, gmailProvider, email, nestchat],
-      inject: [WhatsAppCloudProvider, EmailProvider, GmailProvider, NestChatProvider],
+      ) => [wa, gmailProvider, outlookProvider, email, nestchat],
+      inject: [WhatsAppCloudProvider, EmailProvider, GmailProvider, OutlookProvider, NestChatProvider],
     },
     RoutingService,
     IngestService,
@@ -67,6 +74,8 @@ import { IntegrationsController } from "../settings/integrations.controller";
     GroupsService,
     GoogleOAuthService,
     GmailSyncService,
+    MicrosoftOAuthService,
+    OutlookSyncService,
     MetaOAuthService,
     ChannelDispatcher,
     OutboundDeliveryService,
@@ -74,6 +83,6 @@ import { IntegrationsController } from "../settings/integrations.controller";
     CustomerPushService,
     NestChatService,
   ],
-  exports: [ChannelDispatcher, OutboundDeliveryService, GmailSyncService, MetaOAuthService, NestChatService],
+  exports: [ChannelDispatcher, OutboundDeliveryService, GmailSyncService, OutlookSyncService, MetaOAuthService, NestChatService],
 })
 export class ChannelsModule {}

@@ -128,8 +128,8 @@ export class EmailProvider extends ChannelProvider {
   }
 
   supports(channel: ChannelType, ctx?: SupportsContext): boolean {
-    // Gmail-connected inboxes are served by the Gmail provider, not Postmark.
-    return channel === "email" && ctx?.provider !== "gmail";
+    // Gmail- and Outlook-connected inboxes are served by their own providers, not Postmark.
+    return channel === "email" && ctx?.provider !== "gmail" && ctx?.provider !== "outlook";
   }
 
   async sendText(params: SendParams): Promise<SendResult> {

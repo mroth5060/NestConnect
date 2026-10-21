@@ -2949,6 +2949,16 @@ export const integrationSettingsSchema = z.object({
     /** The URL to register as the Pub/Sub push subscription endpoint. */
     pushEndpoint: z.string(),
   }),
+  /** The org's Microsoft Entra ID app registration, for Outlook / Microsoft 365
+   *  mailboxes. Same shape as Google's: the secret is write-only. */
+  microsoft: z.object({
+    clientId: z.string(),
+    /** Directory (tenant) id; empty means any work or school account. */
+    tenantId: z.string(),
+    configured: z.boolean(),
+    /** The exact URL to add as a Web Redirect URI on the app registration. */
+    redirectUri: z.string(),
+  }),
   meta: z.object({
     appId: z.string(),
     configured: z.boolean(),
@@ -3043,6 +3053,10 @@ export const updateIntegrationSettingsInputSchema = z.object({
   googleClientId: z.string().optional(),
   googleClientSecret: z.string().optional(),
   googlePubsubTopic: z.string().optional(),
+  microsoftClientId: z.string().optional(),
+  microsoftClientSecret: z.string().optional(),
+  /** Written whenever supplied; empty clears it back to "organizations". */
+  microsoftTenantId: z.string().optional(),
   metaAppId: z.string().optional(),
   metaAppSecret: z.string().optional(),
   metaConfigId: z.string().optional(),

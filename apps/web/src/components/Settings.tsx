@@ -105,6 +105,7 @@ import {
   EditIcon,
   GmailGlyph,
   InboxIcon,
+  OutlookGlyph,
   MailIcon,
   PlusIcon,
   RefreshIcon,
@@ -140,7 +141,7 @@ type Leaf =
   | "push";
 type SetupSub = "connections" | "storage" | "email" | "ai" | "push";
 /** The integrations that open a credential sheet from their card. */
-type SetupKey = "google" | "meta" | "storage" | "resend" | "smtp" | "anthropic" | "push";
+type SetupKey = "google" | "microsoft" | "meta" | "storage" | "resend" | "smtp" | "anthropic" | "push";
 
 interface Props {
   onClose: () => void;
@@ -712,6 +713,8 @@ function ConnectChannel({
   const registerNumber = useRegisterWhatsappNumber();
   const qc = useQueryClient();
   const [kind, setKind] = useState<ChannelKind | null>(null);
+  // Non-null while the Outlook step is open: the shared mailbox to connect, if any.
+  const [outlookMailbox, setOutlookMailbox] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [handle, setHandle] = useState("");
   const [cfg, setCfg] = useState<Record<string, string>>({});
@@ -740,6 +743,15 @@ function ConnectChannel({
   };
   const connectGmail = () => connectOAuth("/api/channels/google/oauth/start", "Gmail");
   const connectWhatsApp = () => connectOAuth("/api/channels/meta/oauth/start", "WhatsApp");
+  // Blank connects the signer's own mailbox; an address connects that shared
+  // mailbox through their account (they need Full Access + Send As on it).
+  const connectOutlook = () => {
+    const mailbox = (outlookMailbox ?? "").trim();
+    connectOAuth(
+      `/api/channels/microsoft/oauth/start${mailbox ? `?mailbox=${encodeURIComponent(mailbox)}` : ""}`,
+      "Outlook",
+    );
+  };
 
   // The popup posts its result back to this window when it finishes.
   useEffect(() => {
@@ -757,7 +769,7 @@ function ConnectChannel({
         if (handle) {
           onConnected(handle);
         } else {
-          const who = data.provider === "whatsapp" ? "WhatsApp" : "Gmail";
+          const who = data.provider === "whatsapp" ? "WhatsApp" : data.provider === "outlook" ? "Outlook" : "Gmail";
           onToast(`${who} connected`);
           onDone();
         }
@@ -826,6 +838,53 @@ function ConnectChannel({
     );
   };
 
+  // Outlook — say which mailbox before signing in with Microsoft.
+  if (!kind && outlookMailbox !== null) {
+    return (
+      <div className="modal" onClick={onDone}>
+        <form
+          className="modal__box modal--form"
+          onClick={(e) => e.stopPropagation()}
+          onSubmit={(e) => {
+            e.preventDefault();
+            connectOutlook();
+          }}
+        >
+          <div className="modal__head">
+            <span className="connect__kind">
+              <span className="setrow__ic" style={{ color: "#0F6CBD" }}><OutlookGlyph /></span>
+              Outlook / Microsoft 365
+            </span>
+            <div className="connect__headacts">
+              <button className="btn-ghost sm" type="button" onClick={() => setOutlookMailbox(null)}>Change</button>
+              <button type="button" className="modal__x" onClick={onDone} aria-label="Close"><XIcon /></button>
+            </div>
+          </div>
+          <div className="modal__body">
+            <label className="field">
+              <span>Shared mailbox (optional)</span>
+              <input
+                type="email"
+                value={outlookMailbox}
+                autoFocus
+                onChange={(e) => setOutlookMailbox(e.target.value)}
+                placeholder="orders@hermolis.com"
+              />
+              <small className="fieldhint">
+                For a team address like orders@ or support@, enter it here and sign in as someone with Full Access
+                and Send As on it. Leave blank to connect the mailbox of the account you sign in with.
+              </small>
+            </label>
+          </div>
+          <div className="modal__foot">
+            <button className="btn-ghost" type="button" onClick={onDone}>Cancel</button>
+            <button className="btn-primary" type="submit">Sign in with Microsoft</button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
   // Step 1 — pick a channel type.
   if (!kind) {
     return (
@@ -856,6 +915,13 @@ function ConnectChannel({
             </span>
             <b>Gmail</b>
             <small>Connect with Google — one click, no tokens to copy.</small>
+          </button>
+          <button className="kindcard" onClick={() => setOutlookMailbox("")}>
+            <span className="kindcard__ic" style={{ color: "#0F6CBD" }}>
+              <OutlookGlyph />
+            </span>
+            <b>Outlook / Microsoft 365</b>
+            <small>Connect with Microsoft — your own mailbox or a shared one.</small>
           </button>
         </div>
           </div>
@@ -4753,6 +4819,8 @@ function SetupPane({ sub, onToast }: { sub: SetupSub; onToast: (msg: string) => 
   const [editing, setEditing] = useState<SetupKey | null>(null);
   const google = integrations.data?.google;
   const configured = Boolean(google?.configured);
+  const microsoft = integrations.data?.microsoft;
+  const msConfigured = Boolean(microsoft?.configured);
   const meta = integrations.data?.meta;
   const metaConfigured = Boolean(meta?.configured);
   const storage = integrations.data?.storage;
@@ -4772,6 +4840,9 @@ function SetupPane({ sub, onToast }: { sub: SetupSub; onToast: (msg: string) => 
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
   const [pubsubTopic, setPubsubTopic] = useState("");
+  const [msClientId, setMsClientId] = useState("");
+  const [msClientSecret, setMsClientSecret] = useState("");
+  const [msTenantId, setMsTenantId] = useState("");
   const [metaAppId, setMetaAppId] = useState("");
   const [metaAppSecret, setMetaAppSecret] = useState("");
   const [metaConfigId, setMetaConfigId] = useState("");
@@ -4809,6 +4880,12 @@ function SetupPane({ sub, onToast }: { sub: SetupSub; onToast: (msg: string) => 
   useEffect(() => {
     if (google?.pubsubTopic !== undefined) setPubsubTopic(google.pubsubTopic);
   }, [google?.pubsubTopic]);
+  useEffect(() => {
+    if (microsoft?.clientId !== undefined) setMsClientId(microsoft.clientId);
+  }, [microsoft?.clientId]);
+  useEffect(() => {
+    if (microsoft?.tenantId !== undefined) setMsTenantId(microsoft.tenantId);
+  }, [microsoft?.tenantId]);
   useEffect(() => {
     if (meta?.appId !== undefined) setMetaAppId(meta.appId);
   }, [meta?.appId]);
@@ -4879,6 +4956,27 @@ function SetupPane({ sub, onToast }: { sub: SetupSub; onToast: (msg: string) => 
       onSuccess: () => {
         setClientSecret("");
         onToast("Google settings saved");
+        setEditing(null);
+      },
+      onError: () => onToast("Only admins & managers can change setup"),
+    });
+  };
+
+  const saveMicrosoft = () => {
+    const input: { microsoftClientId?: string; microsoftClientSecret?: string; microsoftTenantId?: string } = {};
+    const id = msClientId.trim();
+    const secret = msClientSecret.trim();
+    if (id) input.microsoftClientId = id;
+    if (secret) input.microsoftClientSecret = secret; // only send the secret when set
+    if (msTenantId.trim() !== (microsoft?.tenantId ?? "")) input.microsoftTenantId = msTenantId.trim();
+    if (input.microsoftClientId === undefined && input.microsoftClientSecret === undefined && input.microsoftTenantId === undefined) {
+      onToast("Enter a Client ID and Secret to save");
+      return;
+    }
+    update.mutate(input, {
+      onSuccess: () => {
+        setMsClientSecret("");
+        onToast("Microsoft settings saved");
         setEditing(null);
       },
       onError: () => onToast("Only admins & managers can change setup"),
@@ -5133,6 +5231,16 @@ function SetupPane({ sub, onToast }: { sub: SetupSub; onToast: (msg: string) => 
               onClick={() => setEditing("google")}
             />
             <IntegrationCard
+              color="#0F6CBD"
+              glyph={<OutlookGlyph />}
+              name="Microsoft 365 / Outlook"
+              blurb="One-click Outlook connect"
+              summary={microsoft?.clientId || "No client ID yet"}
+              on={msConfigured}
+              label={msConfigured ? "Configured" : "Not configured"}
+              onClick={() => setEditing("microsoft")}
+            />
+            <IntegrationCard
               color={channelMeta("whatsapp").color}
               glyph={(() => {
                 const G = channelMeta("whatsapp").Glyph;
@@ -5293,6 +5401,73 @@ function SetupPane({ sub, onToast }: { sub: SetupSub; onToast: (msg: string) => 
               </button>
             </div>
             <small className="fieldhint">Register this as your Pub/Sub push subscription’s endpoint URL.</small>
+          </div>
+        </SetupModal>
+      )}
+
+      {editing === "microsoft" && (
+        <SetupModal
+          title="Microsoft 365 / Outlook"
+          onClose={close}
+          foot={
+            <>
+              <button className="btn-ghost" type="button" onClick={close}>
+                Cancel
+              </button>
+              <button className="btn-primary" type="button" onClick={saveMicrosoft} disabled={update.isPending || integrations.isLoading}>
+                Save
+              </button>
+            </>
+          }
+        >
+          <p className="fieldhint">
+            The app registration from Microsoft Entra admin centre › App registrations. Give it a client secret
+            (Certificates &amp; secrets) and the delegated Microsoft Graph permissions Mail.Read, Mail.Send,
+            Mail.Read.Shared, Mail.Send.Shared and User.Read. People then connect a mailbox with one click.
+          </p>
+
+          <div className="setform__grid two">
+            <label className="field">
+              <span>Application (client) ID</span>
+              <input
+                value={msClientId}
+                autoComplete="off"
+                onChange={(e) => setMsClientId(e.target.value)}
+                placeholder="00000000-0000-0000-0000-000000000000"
+              />
+            </label>
+            <label className="field">
+              <span>Client secret value</span>
+              <input
+                type="password"
+                autoComplete="off"
+                value={msClientSecret}
+                onChange={(e) => setMsClientSecret(e.target.value)}
+                placeholder={msConfigured ? "••••• (hidden)" : "Value, not the secret ID"}
+              />
+            </label>
+          </div>
+
+          <label className="field">
+            <span>Directory (tenant) ID</span>
+            <input
+              value={msTenantId}
+              autoComplete="off"
+              onChange={(e) => setMsTenantId(e.target.value)}
+              placeholder="Blank = any work or school account"
+            />
+            <small className="fieldhint">From the app registration’s Overview. Set it to keep sign-in to your own organisation.</small>
+          </label>
+
+          <div className="field">
+            <span>Redirect URI</span>
+            <div className="copyrow">
+              <input readOnly value={microsoft?.redirectUri ?? ""} onFocus={(e) => e.target.select()} />
+              <button className="btn-ghost" type="button" onClick={() => copy(microsoft?.redirectUri, "ms-redirect", "Redirect URI")}>
+                {copiedKey === "ms-redirect" ? "Copied" : "Copy"}
+              </button>
+            </div>
+            <small className="fieldhint">Add this exact URL under Authentication › Add a platform › Web.</small>
           </div>
         </SetupModal>
       )}

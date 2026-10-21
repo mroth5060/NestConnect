@@ -138,6 +138,10 @@ export const env = {
     // Optional shared secret; when set, the Pub/Sub push webhook must pass ?token=.
     pushToken: process.env.GMAIL_PUSH_TOKEN ?? "",
   },
+  outlook: {
+    // Inbound polling cadence in seconds for Outlook / Microsoft 365; 0 disables it.
+    pollSeconds: Number(process.env.OUTLOOK_POLL_SECONDS ?? 60),
+  },
   media: {
     // Where downloaded media is stored on the local-disk driver. Ephemeral on
     // Railway; production durability comes from Cloudflare R2 (below).

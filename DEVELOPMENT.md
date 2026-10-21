@@ -191,3 +191,28 @@ node tools/simulate-email.mjs "sam@acme.co.uk" "Sam Rivera" "support@hermolis.co
 # passing the reply's Message-ID (its channelMsgId):
 node tools/simulate-email.mjs "sam@acme.co.uk" "Sam Rivera" "support@hermolis.com" "Re: Quote request" "One more thing…" --in-reply-to "<ding.conv_x.123@hermolis.com>"
 ```
+
+## Outlook / Microsoft 365 inboxes
+
+An Outlook mailbox connects with one click, like Gmail: **Settings › Channels ›
+Connect a channel › Outlook / Microsoft 365**. Leave the address blank to
+connect the signer's own mailbox, or enter a **shared mailbox** (`orders@`,
+`support@`) and sign in as someone with **Full Access** and **Send As** on it.
+Inbox and Sent Items are polled every `OUTLOOK_POLL_SECONDS` (default 60);
+replies are sent through Microsoft Graph as MIME, so they keep our Message-ID
+and thread like any other email.
+
+One-time setup, in the Microsoft Entra admin centre › **App registrations**:
+
+1. **New registration** → "Accounts in this organizational directory only".
+2. **Authentication** → Add a platform → **Web** → paste the Redirect URI shown
+   in Settings › Setup › Connections › Microsoft 365 / Outlook.
+3. **Certificates & secrets** → New client secret → copy its **Value**.
+4. **API permissions** → Microsoft Graph → Delegated: `Mail.Read`, `Mail.Send`,
+   `Mail.Read.Shared`, `Mail.Send.Shared`, `User.Read` (and *Grant admin
+   consent* if the tenant restricts user consent).
+5. Paste the Application (client) ID, secret Value and Directory (tenant) ID
+   into that Setup card.
+
+`MICROSOFT_OAUTH_MOCK=true` fakes the whole sign-in for local work, and
+`pnpm check:outlook` exercises sync and sending against a fake Graph.

@@ -277,6 +277,12 @@ export const channelIcons = {
   gmail: {
     fill: "M4 5h1.4L12 9.9 18.6 5H20a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-2.6v-8.2L12 14 6.6 9.8V19H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z",
   },
+  /** Outlook's slanted tile with its "O" cut out, an envelope behind it.
+   *  The hole is wound the other way, so it punches through under nonzero. */
+  outlook: {
+    fill: "M3 5.5 13 4v16L3 18.5Z M8 9a2.4 3 0 1 0 0 6 2.4 3 0 1 0 0-6Z",
+    d: "M13 7h7a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-7 M13 9.5l4 3 4-3",
+  },
 } satisfies Record<string, IconSpec>;
 
 /* ──────────────────────────────────────────────────── the team icon library ── */

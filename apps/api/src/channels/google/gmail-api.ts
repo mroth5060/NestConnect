@@ -242,7 +242,7 @@ function decodeB64Url(data: string): string {
 }
 
 /** Strip tags from an HTML body as a last resort when there's no text/plain. */
-function htmlToText(html: string): string {
+export function htmlToText(html: string): string {
   return html
     .replace(/<style[\s\S]*?<\/style>/gi, "")
     .replace(/<script[\s\S]*?<\/script>/gi, "")

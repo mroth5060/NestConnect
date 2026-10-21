@@ -31,6 +31,7 @@
     "check:visitor-history": "tsx --tsconfig apps/api/tsconfig.json tools/check-visitor-history.ts",
     "check:2fa-gate": "tsx --tsconfig apps/api/tsconfig.json tools/check-2fa-gate.ts",
     "check:trusted-device": "tsx --tsconfig apps/api/tsconfig.json tools/check-trusted-device.ts",
+    "check:outlook": "tsx --tsconfig apps/api/tsconfig.json tools/check-outlook.ts",
     "check:hooks": "node tools/check-hook-order.mjs",
     "lint": "turbo run lint",
     "clean": "turbo run clean && rm -rf node_modules",

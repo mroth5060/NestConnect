@@ -141,6 +141,8 @@ const EmailGlyph = g(channelIcons.email);
 const NestChatGlyph = g(channelIcons.nestchat);
 /** Gmail envelope (the tell-tale "M" valley). Colour it via the parent. */
 export const GmailGlyph = g(channelIcons.gmail);
+/** Outlook / Microsoft 365 tile. Colour it via the parent. */
+export const OutlookGlyph = g(channelIcons.outlook);
 
 export interface ChannelMeta {
   color: string;
