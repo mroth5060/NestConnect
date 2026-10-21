@@ -88,6 +88,13 @@ jobs:
     env:
       # The lockfile-pinned eas-cli reads this directly; no global CLI install.
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      # Publishing on push is paused until Hermolis has its own app. app.json
+      # still names the upstream Expo project and bundle id, so an automatic
+      # update would go to someone else's app. Every push still runs the bundle
+      # check below; set the repository variable MOBILE_AUTO_UPDATE=true once
+      # the Hermolis app exists. A manual run (workflow_dispatch) is a
+      # deliberate choice and is not gated.
+      MOBILE_PUBLISH: ${{ github.event_name != 'push' || vars.MOBILE_AUTO_UPDATE == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -185,7 +192,7 @@ jobs:
             --non-interactive
 
       - name: Update
-        if: env.MOBILE_MODE == 'update'
+        if: env.MOBILE_MODE == 'update' && env.MOBILE_PUBLISH == 'true'
         working-directory: apps/mobile
         env:
           UPDATE_MESSAGE: ${{ steps.msg.outputs.text }}
@@ -197,7 +204,19 @@ jobs:
             --message "$UPDATE_MESSAGE" \
             --non-interactive
 
+      - name: Publishing paused
+        if: env.MOBILE_PUBLISH != 'true'
+        run: |
+          {
+            echo "### Mobile update not published"
+            echo
+            echo "The app bundles cleanly. Publishing on push is paused until the"
+            echo "Hermolis app is set up — set the repository variable"
+            echo "MOBILE_AUTO_UPDATE=true to turn it back on."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Where to find it
+        if: env.MOBILE_PUBLISH == 'true'
         run: |
           case "${{ env.MOBILE_MODE }}" in
             build) KIND=builds ;;
